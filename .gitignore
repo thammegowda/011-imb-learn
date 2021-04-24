@@ -1,0 +1,10 @@
+*.jpg
+*.jpeg
+*.png
+*.zip
+__MACOSX
+
+data/*
+!data/*.sh
+.idea
+.ipynb_checkpoints
