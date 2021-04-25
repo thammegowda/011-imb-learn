@@ -3,8 +3,10 @@
 *.png
 *.zip
 __MACOSX
+*.pkl
 
 data/*
 !data/*.sh
 .idea
 .ipynb_checkpoints
+runs/
