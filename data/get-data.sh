@@ -37,11 +37,11 @@ function get_msl {
     table=$src/$split-set-v2.1.txt
     [[ -f $table ]] || log_exit 3 "$table not found."
 
-    while read img cls; do
+    cat $table | while read img cls; do
       label=${classes[$cls]}
       dst=$tgt/$split/$label/$img
       [[ -f $dst ]] || cp $images/$img $dst
-    done < $table
+    done
   done
   touch $tgt/_VALID
 }

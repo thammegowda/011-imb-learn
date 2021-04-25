@@ -1,9 +1,10 @@
 
 
+import torch
 import torchvision
 from torch import Tensor, nn
 
-from . import log
+from . import log, device
 
 
 class PreTrainedModels:
@@ -24,9 +25,10 @@ class PreTrainedModels:
     @classmethod
     def cache(cls, name):
         if name not in cls.__cache:
-            log.info()
+            log.info(f"initializing parent model: {name}")
             model = cls.get_model(name=name, pretrained=True)
             model.eval()
+            model = model.to(device)
             cls.__cache[name] = model
         return cls.__cache[name]
 
@@ -39,6 +41,7 @@ class ImageClassifier(nn.Module):
         self.parent = parent
 
     def forward(self, xs: Tensor):
-        feats = PreTrainedModels.cache(self.parent)(xs)
+        with torch.no_grad():
+            feats = PreTrainedModels.cache(self.parent)(xs)
         return self.fc(feats)
 

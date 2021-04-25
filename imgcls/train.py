@@ -27,12 +27,12 @@ class Experiment:
 
     def __init__(self, work_dir: Path, model=None, optimizer=None, device=device):
 
-
         self.work_dir = work_dir
         self.models_dir = work_dir / 'models'
         self.models_dir.mkdir(parents=True, exist_ok=True)
         self.conf = yaml.load(work_dir / 'conf.yml')
         self.sanity_check_conf(self.conf)
+        self.device = device
         log.update_file_handler(work_dir / 'trainer.log')
 
         # these magic numbers are required for imagenet pretrained models
@@ -73,10 +73,12 @@ class Experiment:
         self.step = self._state['step']
         self.epoch = self._state['epoch']
         if self.step > 0:
-            assert self.last_checkpt and self.last_checkpt.exists()
-            chkpt = torch.load(self.last_checkpt, map_location=device)
+            assert self.best_checkpt.exists()
+            chkpt = torch.load(self.best_checkpt, map_location=device)
+            log.info(f'Restoring model state from checkpoint')
             self.model.load_state_dict(chkpt['model_state'])
             if 'optimizer_state' in chkpt:
+                log.info('Restoring optimizer state from checkpoint')
                 self.optimizer.load_state_dict(chkpt['optimizer_state'])
 
     def _get_model(self, **args) -> nn.Module:
@@ -94,11 +96,9 @@ class Experiment:
         return lookup[name](params=self.model.parameters(), **o_args)
 
     @property
-    def last_checkpt(self) -> Optional[Path]:
-        checkpt = self._state.get('last_checkpt')
-        if checkpt:
-            checkpt = self.models_dir / checkpt
-            assert checkpt.exists(), f'Invalid state: {checkpt} expected but not found'
+    def best_checkpt(self) -> Optional[Path]:
+        checkpt = self.models_dir / 'checkpt_best.pkl'
+        #assert checkpt.exists(), f'Invalid state: {checkpt} expected but not found'
         return checkpt
 
     @classmethod
@@ -132,8 +132,8 @@ class Experiment:
 
 
         # YAML has trouble serializing numpy float64 types
-        for key, metrics in [('train_metrics', train_metrics), ('val_metrics', val_metrics)]:
-            for name, val in metrics:
+        for key, metrics in [('train_metric', train_metrics), ('val_metric', val_metrics)]:
+            for name, val in metrics.items():
                 if not name in self._state[key]:
                     self._state[key][name] = []
                 self._state[key][name].append(float(val))
@@ -142,13 +142,15 @@ class Experiment:
         patience = self.conf['validation'].get('patience', -1)
         minimizing = by in ('loss',)   # else maximising
         this_score = val_metrics[by]
-        all_scores = self._state['val_metrics'][by]
+        all_scores = self._state['val_metric'][by]
 
         if minimizing:
             is_best = this_score <= min(all_scores)
         else:
             is_best = this_score >= max(all_scores)
 
+        log.info(f"Epoch={self.epoch} Step={self.step}"
+                  f"\ntrain:{train_metrics}\nvalidation:{val_metrics}")
         if is_best:
             checkpt_name = 'checkpt_best.pkl'
             checkpt_path = self.models_dir / checkpt_name
@@ -160,12 +162,13 @@ class Experiment:
                 epoch=self.epoch,
                 train_metrics=train_metrics,
                 val_metrics=dict(loss=val_loss, accuracy=val_acc))
-            log.info(f"Checkpointing: step={self.step} epoch={self.epoch}"
-                     f"\ntrain:{train_metrics}\nvalidation:{val_metrics}")
+            log.info('saving this checkpoint')
             torch.save(checkpt, checkpt_path)
             self._state.update(dict(step=self.step, epoch=self.epoch, recent_skips=0))
         else:
+            log.warning('This checkpoint was not an improvement; Not saving it')
             self._state['recent_skips'] += 1
+            log.info(f'Patience={patience};  recent skips={self._state["recent_skips"]}')
         yaml.dump(self._state, self._state_file)
         return self._state['recent_skips'] > patience # stop training
 
@@ -173,11 +176,12 @@ class Experiment:
         losses = []
         accs = []
         assert not self.model.training
-        for xs, ys in tqdm(val_loader):
+        for xs, ys in tqdm(val_loader, desc=f'Ep:{self.epoch} Step:{self.step}'):
+            xs, ys = xs.to(self.device), ys.to(self.device)
             output = self.model(xs)
             loss = self.criterion(output, ys)
             losses.append(loss.item())
-            accs.append(accuracy(output.data, ys))
+            accs.append(accuracy(output.data, ys).item())
         return np.mean(losses), np.mean(accs)
 
     def train(self, max_step=10 ** 6, max_epoch=10 ** 3, batch_size=1,
@@ -195,29 +199,38 @@ class Experiment:
         while not force_stop and self.step <= max_step and self.epoch <= max_epoch:
             train_losses = []
             train_accs = []
-            for xs, ys in tqdm(train_loader):
+            log.info(f"Epoch={self.epoch}")
+            with tqdm(train_loader, initial=self.step, total=max_step, unit='batch',
+                      dynamic_ncols=True, desc=f'Ep:{self.epoch}') as pbar:
+                for xs, ys in pbar:
+                    xs, ys = xs.to(self.device), ys.to(self.device)
+                    output = self.model(xs)
+                    loss = self.criterion(output, ys)
 
-                output = self.model(xs)
-                loss = self.criterion(output, ys)
+                    train_losses.append(loss.item())
+                    train_accs.append(accuracy(output.data, ys).item())
+                    p_msg = f'Loss={train_losses[-1]:g} Acc:{train_accs[-1]:.2f}%'
+                    pbar.set_postfix_str(p_msg, refresh=False)
+                    
+                    # compute gradient and do SGD step
+                    self.optimizer.zero_grad()
+                    loss.backward()
+                    self.optimizer.step()
+                    self.step += 1
 
-                train_losses.append(loss.item())
-                train_accs.append(accuracy(output.data, ys))
+                    
+                    if self.step % checkpoint == 0:
+                        metrics = dict(loss=np.mean(train_losses), accuracy=np.mean(train_accs))
+                        force_stop = self._checkpoint(metrics, val_loader)
+                        train_losses.clear()
+                        train_accs.clear()
+                        if force_stop:
+                            log.info("Force early stopping the training")
+                            break
 
-                # compute gradient and do SGD step
-                self.optimizer.zero_grad()
-                loss.backward()
-                self.optimizer.step()
-                self.step += 1
-                #
-                if self.step % checkpoint == 0:
-                    metrics = dict(loss=np.mean(train_losses), accuracy=np.mean(train_accs))
-                    force_stop = self._checkpoint(metrics, val_loader)
-                    train_losses.clear()
-                    train_accs.clear()
-
-                if self.step > max_step:
-                    log.info("Max steps reached;")
-                    break
+                    if self.step > max_step:
+                        log.info("Max steps reached;")
+                        break
 
             if not force_stop and self.step < max_step:
                 self.epoch += 1
