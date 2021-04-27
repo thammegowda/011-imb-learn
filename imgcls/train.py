@@ -151,6 +151,7 @@ class Experiment:
             val_metric_msg = val_met.format(confusion=False)
             log.info(f"Validation at step {self.step}:\n{val_metric_msg}")
             metric_file = self.models_dir / f'validation-{self.step:04d}.txt'
+            val_metric_msg = val_met.format(confusion=True)
             metric_file.write_text(val_metric_msg)
             val_metrics = dict(loss=val_loss, accuracy=val_met.accuracy,
                                macro_f1=val_met.macro_f1,
