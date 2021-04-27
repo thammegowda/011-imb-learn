@@ -58,29 +58,31 @@ class ClsMetric:
     def format(self, confusion=True, col_width=10):
         assert col_width >= 8
         builder = []
-        builder.append(f"MacroF1     \t{self.macro_f1:g} %\n")
-        builder.append(f"MacroPrecn  \t{self.macro_precision:g} %\n")
-        builder.append(f"MacroRecall \t{self.macro_recall:g} %\n")
-        builder.append(f"Accuracy    \t{self.accuracy:g} %\n")
+        builder.append(f"MacroF1         {self.macro_f1:g} %\n")
+        builder.append(f"MacroPrecision  {self.macro_precision:g} %\n")
+        builder.append(f"MacroRecall     {self.macro_recall:g} %\n")
+        builder.append(f"Accuracy        {self.accuracy:g} %\n")
         builder.append("\n")
 
-        def truncate(name, width=col_width - 1):
-            assert width % 2 == 1, 'odd width expected'
-            if len(name) >= width:
-                half = width // 2
-                name = name[:half] + '…' + name[-half:]
-            return name
-        cls_names = [truncate(cn) for cn in self.clsmap]
-
-        builder.append("[Class]")
+        max_cls_len = max(len(c)for c in self.clsmap)
+        builder.append("[Class]".rjust(max_cls_len))
         builder += [col for col in self.col_head]
         builder.append("\n")
-        for cls_idx, cls_name in enumerate(cls_names):
-            builder.append(cls_name)
+        for cls_idx, cls_name in enumerate(self.clsmap):
+            builder.append(cls_name.rjust(max_cls_len))
             builder += [f'{cell:g}' for cell in self.summary[:, cls_idx]]
             builder.append('\n')
 
         if confusion:
+
+            def truncate(name, width=col_width - 1):
+                assert width % 2 == 1, 'odd width expected'
+                if len(name) >= width:
+                    half = width // 2
+                    name = name[:half] + '…' + name[-half:]
+                return name
+
+            cls_names = [truncate(cn) for cn in self.clsmap]
             builder.append("\n")
             builder.append("vTr Pr>")  # header
             builder += [cls_name for cls_name in cls_names]

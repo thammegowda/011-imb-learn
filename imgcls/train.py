@@ -29,26 +29,63 @@ class Registry:
     schedulers = dict(inverse_sqrt=InverseSqrtSchedule, noam=NoamSchedule)
 
 
-class Experiment:
+class BaseExperiment:
 
-    def __init__(self, work_dir: Path, model=None, optimizer=None, device=device):
-
+    def __init__(self, work_dir: Path, device=device, log_file=None):
         self.work_dir = work_dir
-        self.conf = yaml.load(work_dir / 'conf.yml')
-        self.sanity_check_conf(self.conf)
+        self._conf_file = work_dir / 'conf.yml'
+        assert self._conf_file.exists()
+        self.conf = yaml.load(self._conf_file)
         self.device = device
         self.models_dir = work_dir / 'models'
         self.models_dir.mkdir(parents=True, exist_ok=True)
-        (self.work_dir / 'logs').mkdir(parents=True, exist_ok=True)
-        log.update_file_handler(work_dir / 'logs/trainer.log')
+        if not log_file:
+            logs_dir = work_dir / 'logs'
+            logs_dir.mkdir(parents=True, exist_ok=True)
+            log_file = logs_dir / 'log.log'
+        log.update_file_handler(log_file)
 
         # these magic numbers are required for imagenet pretrained models
         self.normalize = T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+        self.eval_transform = T.Compose([T.Resize(256), T.CenterCrop(224),
+                                         T.ToTensor(), self.normalize])
+
+        self.class_stats = self.work_dir / 'classes.csv'
+        if self.class_stats.exists():
+            self.classes = []
+            for line_num, line in enumerate(self.class_stats.read_text().splitlines()):
+                idx, name = line.strip().split(",")
+                assert line_num == int(idx)
+                self.classes.append(name)
+
+    @property
+    def best_checkpt(self) -> Optional[Path]:
+        checkpt = self.models_dir / 'checkpt_best.pkl'
+        # assert checkpt.exists(), f'Invalid state: {checkpt} expected but not found'
+        return checkpt
+
+    def _get_model(self, name=None, **args) -> nn.Module:
+        name = name or self.conf['model']['name']
+        args = args or self.conf['model']['args']
+        assert name in Registry.models, f'model={name} is unknown; known={Registry.models.keys()}'
+        log.info(f"Model {name}; args: {args}")
+        return Registry.models[name](**args)
+
+
+class Trainer(BaseExperiment):
+
+    def __init__(self, work_dir: Path, model=None, optimizer=None, device=device):
+
+        logs_dir = work_dir / 'logs'
+        logs_dir.mkdir(parents=True, exist_ok=True)
+        log_file = logs_dir / 'trainer.log'
+        super().__init__(work_dir=work_dir, device=device, log_file=log_file)
+        self.sanity_check_conf(self.conf)
+
+        # these magic numbers are required for imagenet pretrained models
         self.train_transform = T.Compose([T.RandomResizedCrop(224),
                                           T.RandomHorizontalFlip(),
                                           T.ToTensor(), self.normalize])
-        self.eval_transform = T.Compose([T.Resize(256), T.CenterCrop(224),
-                                         T.ToTensor(), self.normalize])
 
         self.train_data = ImageFolder(self.conf['train']['data'], transform=self.train_transform)
         self.val_data = ImageFolder(self.conf['validation']['data'], transform=self.eval_transform)
@@ -90,13 +127,6 @@ class Experiment:
                 log.info('Restoring optimizer state from checkpoint')
                 self.optimizer.load_state_dict(chkpt['optimizer_state'])
 
-    def _get_model(self, name=None, **args) -> nn.Module:
-        name = name or self.conf['model']['name']
-        args = args or self.conf['model']['args']
-        assert name in Registry.models, f'model={name} is unknown; known={Registry.models.keys()}'
-        log.info(f"Model {name}; args: {args}")
-
-        return Registry.models[name](**args)
 
     def _get_optimizer(self, name=None, **args) -> torch.optim.Optimizer:
         name = name or self.conf['optimizer']['name']
@@ -116,11 +146,6 @@ class Experiment:
         log.info(f"Scheduler: {scheduler}")
         return scheduler
 
-    @property
-    def best_checkpt(self) -> Optional[Path]:
-        checkpt = self.models_dir / 'checkpt_best.pkl'
-        # assert checkpt.exists(), f'Invalid state: {checkpt} expected but not found'
-        return checkpt
 
     @classmethod
     def sanity_check_conf(cls, conf):
@@ -280,11 +305,6 @@ class Experiment:
             if not force_stop and self.step < max_step:
                 self.epoch += 1
 
-    def run(self):
-        train_args: Dict = copy(self.conf['train'])
-        train_args.pop('data', None)
-        self.train(**train_args)
-
 
 def accuracy(output, target):
     """Computes accuracy"""
@@ -297,14 +317,16 @@ def accuracy(output, target):
 def parse_args():
     import argparse
     p = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    p.add_argument('work_dir', type=Path, help='Path of experiment dir having conf.yml file')
+    p.add_argument('exp_dir', type=Path, help='Experiment dir path (must have conf.yml in it).')
     return p.parse_args()
 
 
 def main(**args):
     args = args or vars(parse_args())
-    exp = Experiment(args['work_dir'])
-    exp.run()
+    trainer = Trainer(args['exp_dir'])
+    train_args: Dict = copy(trainer.conf['train'])
+    train_args.pop('data', None)
+    trainer.train(**train_args)
 
 
 if __name__ == '__main__':
