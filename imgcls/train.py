@@ -94,12 +94,14 @@ class Experiment:
         name = name or self.conf['model']['name']
         args = args or self.conf['model']['args']
         assert name in Registry.models, f'model={name} is unknown; known={Registry.models.keys()}'
+        log.info(f"Model {name}; args: {args}")
+
         return Registry.models[name](**args)
 
     def _get_optimizer(self, name=None, **args) -> torch.optim.Optimizer:
         name = name or self.conf['optimizer']['name']
         args = args or self.conf['optimizer']['args']
-
+        log.info(f"Optimizer {name}; args: {args}")
         assert name in Registry.optimizers, f'{name} unknown; known={list(Registry.optimizers.keys())}'
         log.info(f"Initializing {Registry.optimizers[name]} with args: {args}")
         return Registry.optimizers[name](params=self.model.parameters(), **args)
@@ -111,7 +113,7 @@ class Experiment:
         assert name in Registry.schedulers, f'scheduler {name} unknown;' \
                                             f' known: {Registry.schedulers.keys()}'
         scheduler = Registry.schedulers[name](**args)
-        log.info(f"Learning rate scheduler: {scheduler}")
+        log.info(f"Scheduler: {scheduler}")
         return scheduler
 
     @property

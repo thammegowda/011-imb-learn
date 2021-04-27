@@ -2,6 +2,8 @@ model:
     name: ImageClassifier
     args:
         n_classes: 19
+        intermediate: 40
+        dropout: 0.2
         parent: resnext50_32x4d    # torchvision.models.<this>
 optimizer:
     name: Adam
@@ -24,7 +26,7 @@ train:
 
 validation:
     data: data/msl/val
-    batch_size: 1
+    batch_size: 10
     patience: 10
     by: macro_f1
     keep: 10                # keep these many models

@@ -35,8 +35,18 @@ class PreTrainedModels:
 
 class ImageClassifier(nn.Module):
 
-    def __init__(self, n_classes, parent, pre_classes=1000):
+    def __init__(self, n_classes, parent, dropout=0.3, pre_classes=1000, intermediate=None):
         super().__init__()
+        intermediate = intermediate or 2 * n_classes
+        self.classifier = nn.Sequential(
+            nn.Dropout(dropout),
+            nn.Linear(pre_classes, intermediate),
+            nn.Dropout(dropout),
+            nn.ReLU(),
+            nn.Linear(intermediate, n_classes)
+        )
+
+
         self.fc = nn.Linear(pre_classes, n_classes)
         self.parent = parent
 
