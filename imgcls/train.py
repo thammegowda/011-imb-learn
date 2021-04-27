@@ -2,9 +2,6 @@
 #
 # Author: Thamme Gowda [tg (at) isi (dot) edu] 
 # Created: 4/23/21
-
-# %%
-
 import logging as log
 from pathlib import Path
 from typing import Optional, Dict
@@ -12,15 +9,24 @@ from copy import copy
 
 import numpy as np
 import torch
-from torch import Tensor, nn
+from torch import nn
+from torch import optim
 from torch.utils.data import DataLoader
 import torchvision
 from torchvision import transforms as T
 from torchvision.datasets import ImageFolder
 from tqdm import tqdm
 
-from . import log, yaml, device
+from . import log, yaml, device, ClsMetric
 from .model import ImageClassifier
+from .scheduler import InverseSqrtSchedule, NoamSchedule, LRSchedule
+
+
+class Registry:
+    models = dict(ImageClassifier=ImageClassifier)
+    optimizers = dict(Adam=optim.Adam, SGB=optim.SGD, Adagrad=optim.Adagrad, AdamW=optim.AdamW,
+                      Adadelta=optim.Adadelta, SparseAdam=optim.SparseAdam)
+    schedulers = dict(inverse_sqrt=InverseSqrtSchedule, noam=NoamSchedule)
 
 
 class Experiment:
@@ -28,12 +34,13 @@ class Experiment:
     def __init__(self, work_dir: Path, model=None, optimizer=None, device=device):
 
         self.work_dir = work_dir
-        self.models_dir = work_dir / 'models'
-        self.models_dir.mkdir(parents=True, exist_ok=True)
         self.conf = yaml.load(work_dir / 'conf.yml')
         self.sanity_check_conf(self.conf)
         self.device = device
-        log.update_file_handler(work_dir / 'trainer.log')
+        self.models_dir = work_dir / 'models'
+        self.models_dir.mkdir(parents=True, exist_ok=True)
+        (self.work_dir / 'logs').mkdir(parents=True, exist_ok=True)
+        log.update_file_handler(work_dir / 'logs/trainer.log')
 
         # these magic numbers are required for imagenet pretrained models
         self.normalize = T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
@@ -48,7 +55,7 @@ class Experiment:
         self.classes = self.train_data.classes
         assert self.classes == self.val_data.classes, 'Training and val classes mismatch'
 
-        self.n_classes = self.conf.get('model', {}).get('n_classes')
+        self.n_classes = self.conf['model']['args'].get('n_classes')
         assert len(self.classes) == self.n_classes, \
             f'Dataset has {len(self.classes)}, but in conf has model.n_classes={self.n_classes}'
 
@@ -61,6 +68,7 @@ class Experiment:
         self.criterion = nn.CrossEntropyLoss()
         self.model = (model or self._get_model()).to(device)
         self.optimizer = optimizer or self._get_optimizer()
+        self.scheduler = self._get_lr_scheduler()
 
         self._state = dict(step=0, epoch=0, last_checkpt=None,
                            train_metric=dict(loss=[], accuracy=[]),
@@ -73,7 +81,8 @@ class Experiment:
         self.step = self._state['step']
         self.epoch = self._state['epoch']
         if self.step > 0:
-            assert self.best_checkpt.exists()
+            assert self.best_checkpt.exists(), f'{self._state_file} exists with step > 0 but' \
+                                               f' no checkpoint found at {self.best_checkpt}'
             chkpt = torch.load(self.best_checkpt, map_location=device)
             log.info(f'Restoring model state from checkpoint')
             self.model.load_state_dict(chkpt['model_state'])
@@ -81,24 +90,34 @@ class Experiment:
                 log.info('Restoring optimizer state from checkpoint')
                 self.optimizer.load_state_dict(chkpt['optimizer_state'])
 
-    def _get_model(self, **args) -> nn.Module:
-        args = args or self.conf['model']
-        return ImageClassifier(**args)
+    def _get_model(self, name=None, **args) -> nn.Module:
+        name = name or self.conf['model']['name']
+        args = args or self.conf['model']['args']
+        assert name in Registry.models, f'model={name} is unknown; known={Registry.models.keys()}'
+        return Registry.models[name](**args)
 
-    def _get_optimizer(self, args=None) -> torch.optim.Optimizer:
-        args = args or self.conf['optimizer']
-        name, o_args = args['name'].lower(), dict(args['args'])
-        from torch import optim
-        lookup = dict(adam=optim.Adam, sgd=optim.SGD, adagrad=optim.Adagrad,
-                      adadelta=optim.Adadelta, sparseadam=optim.SparseAdam)
-        assert name in lookup, f'{name} unknown; known={list(lookup.keys())}'
-        log.info(f"Initializing {lookup[name]} with args: {o_args}")
-        return lookup[name](params=self.model.parameters(), **o_args)
+    def _get_optimizer(self, name=None, **args) -> torch.optim.Optimizer:
+        name = name or self.conf['optimizer']['name']
+        args = args or self.conf['optimizer']['args']
+
+        assert name in Registry.optimizers, f'{name} unknown; known={list(Registry.optimizers.keys())}'
+        log.info(f"Initializing {Registry.optimizers[name]} with args: {args}")
+        return Registry.optimizers[name](params=self.model.parameters(), **args)
+
+    def _get_lr_scheduler(self, name=None, **args) -> LRSchedule:
+        name = name or self.conf['scheduler']['name']
+        args = args or self.conf['scheduler']['args']
+
+        assert name in Registry.schedulers, f'scheduler {name} unknown;' \
+                                            f' known: {Registry.schedulers.keys()}'
+        scheduler = Registry.schedulers[name](**args)
+        log.info(f"Learning rate scheduler: {scheduler}")
+        return scheduler
 
     @property
     def best_checkpt(self) -> Optional[Path]:
         checkpt = self.models_dir / 'checkpt_best.pkl'
-        #assert checkpt.exists(), f'Invalid state: {checkpt} expected but not found'
+        # assert checkpt.exists(), f'Invalid state: {checkpt} expected but not found'
         return checkpt
 
     @classmethod
@@ -116,7 +135,7 @@ class Experiment:
             path = _safe_get(d)
             assert Path(path).exists(), f'{d}={path} is invalid or doesnt exist; PWD={pwd}'
 
-        parent = _safe_get('model.parent')
+        parent = _safe_get('model.args.parent')
         assert hasattr(torchvision.models, parent), f'parent model {parent} unknown to torchvision'
         assert callable(getattr(torchvision.models, parent)), f'parent model {parent} is invalid'
 
@@ -126,10 +145,16 @@ class Experiment:
     def _checkpoint(self, train_metrics, val_loader) -> bool:
         with torch.no_grad():
             self.model.eval()
-            val_loss, val_acc = self.validate(val_loader)
-            val_metrics = dict(loss=val_loss, accuracy=val_acc)
+            val_loss, val_met = self.validate(val_loader)
+            val_metric_msg = val_met.format(confusion=False)
+            log.info(f"Validation at step {self.step}:\n{val_metric_msg}")
+            metric_file = self.models_dir / f'validation-{self.step:04d}.txt'
+            metric_file.write_text(val_metric_msg)
+            val_metrics = dict(loss=val_loss, accuracy=val_met.accuracy,
+                               macro_f1=val_met.macro_f1,
+                               macro_precision=val_met.macro_precision,
+                               macro_recall=val_met.macro_recall)
             self.model.train()
-
 
         # YAML has trouble serializing numpy float64 types
         for key, metrics in [('train_metric', train_metrics), ('val_metric', val_metrics)]:
@@ -138,9 +163,11 @@ class Experiment:
                     self._state[key][name] = []
                 self._state[key][name].append(float(val))
 
-        by = self.conf['validation'].get('by', 'loss')
+        by = self.conf['validation'].get('by', 'loss').lower()
+        assert by in val_metrics, f'validation.by={by} unknown; known={list(val_metrics.keys())}'
+        log.info(f"Validation by {by}")
         patience = self.conf['validation'].get('patience', -1)
-        minimizing = by in ('loss',)   # else maximising
+        minimizing = by in ('loss',)  # else maximising
         this_score = val_metrics[by]
         all_scores = self._state['val_metric'][by]
 
@@ -150,7 +177,7 @@ class Experiment:
             is_best = this_score >= max(all_scores)
 
         log.info(f"Epoch={self.epoch} Step={self.step}"
-                  f"\ntrain:{train_metrics}\nvalidation:{val_metrics}")
+                 f"\ntrain:{train_metrics}\nvalidation:{val_metrics}")
         if is_best:
             checkpt_name = 'checkpt_best.pkl'
             checkpt_path = self.models_dir / checkpt_name
@@ -161,7 +188,7 @@ class Experiment:
                 step=self.step,
                 epoch=self.epoch,
                 train_metrics=train_metrics,
-                val_metrics=dict(loss=val_loss, accuracy=val_acc))
+                val_metrics=val_metrics)
             log.info('saving this checkpoint')
             torch.save(checkpt, checkpt_path)
             self._state.update(dict(step=self.step, epoch=self.epoch, recent_skips=0))
@@ -170,26 +197,40 @@ class Experiment:
             self._state['recent_skips'] += 1
             log.info(f'Patience={patience};  recent skips={self._state["recent_skips"]}')
         yaml.dump(self._state, self._state_file)
-        return self._state['recent_skips'] > patience # stop training
+        return self._state['recent_skips'] > patience  # stop training
 
     def validate(self, val_loader):
         losses = []
         accs = []
         assert not self.model.training
+        predictions = []
+        truth = []
         for xs, ys in tqdm(val_loader, desc=f'Ep:{self.epoch} Step:{self.step}'):
             xs, ys = xs.to(self.device), ys.to(self.device)
             output = self.model(xs)
             loss = self.criterion(output, ys)
             losses.append(loss.item())
             accs.append(accuracy(output.data, ys).item())
-        return np.mean(losses), np.mean(accs)
+            _, top_idx = output.detach().max(dim=1)
+            predictions.append(top_idx)
+            truth.append(ys)
+        metric = ClsMetric(prediction=torch.cat(predictions), truth=torch.cat(truth),
+                           clsmap=self.classes)
+        return np.mean(losses), metric
+
+    def learning_rate_adjust(self) -> float:
+        rate = self.scheduler(self.step)
+        for p in self.optimizer.param_groups:
+            p['lr'] = rate
+        return rate
 
     def train(self, max_step=10 ** 6, max_epoch=10 ** 3, batch_size=1,
               num_threads=0, checkpoint=1000):
 
         train_loader = DataLoader(self.train_data, batch_size=batch_size, shuffle=True,
                                   num_workers=num_threads, pin_memory=True)
-        val_loader = DataLoader(self.val_data, batch_size=batch_size, shuffle=True,
+        val_batch_size = self.conf.get('validation', {}).get('batch_size', batch_size)
+        val_loader = DataLoader(self.val_data, batch_size=val_batch_size, shuffle=False,
                                 num_workers=num_threads, pin_memory=True)
 
         if self.step > 0:
@@ -209,16 +250,17 @@ class Experiment:
 
                     train_losses.append(loss.item())
                     train_accs.append(accuracy(output.data, ys).item())
-                    p_msg = f'Loss={train_losses[-1]:g} Acc:{train_accs[-1]:.2f}%'
-                    pbar.set_postfix_str(p_msg, refresh=False)
-                    
+
                     # compute gradient and do SGD step
                     self.optimizer.zero_grad()
                     loss.backward()
-                    self.optimizer.step()
                     self.step += 1
+                    lr = self.learning_rate_adjust()
+                    self.optimizer.step()
 
-                    
+                    p_msg = f'Lr={lr:g} Loss={train_losses[-1]:g} Acc:{train_accs[-1]:.2f}%'
+                    pbar.set_postfix_str(p_msg, refresh=False)
+
                     if self.step % checkpoint == 0:
                         metrics = dict(loss=np.mean(train_losses), accuracy=np.mean(train_accs))
                         force_stop = self._checkpoint(metrics, val_loader)

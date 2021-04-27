@@ -8,6 +8,7 @@ import logging
 from .log import Logger
 from ruamel.yaml import YAML
 import torch
+from .metric import ClsMetric
 
 
 log = Logger(console_level=logging.DEBUG)

@@ -3,13 +3,15 @@
 # Author: Thamme Gowda [tg (at) isi (dot) edu] 
 # Created: 4/26/21
 
-from typing import List
+from typing import List, Union
+from torch import Tensor
 import numpy as np
+Array = Union[List[int], Tensor, np.ndarray]
 
 
 class ClsMetric:
 
-    def __init__(self, prediction: List[int], truth: List[int], clsmap: List[str]):
+    def __init__(self, prediction: Array, truth: Array, clsmap: List[str]):
         """
         :param prediction: List of predictions (class index)
         :param truth: List of true labels (class index)
