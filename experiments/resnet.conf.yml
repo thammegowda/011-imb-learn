@@ -19,7 +19,8 @@ scheduler:
 train:
     data: data/msl/train
     batch_size: 1
-    max_step: 10_000
+    #max_step: 10_000
+    max_step: 300
     max_epoch: 100
     # checkpoint: 1_000
     checkpoint: 100

@@ -16,6 +16,7 @@ import torchvision
 from torchvision import transforms as T
 from torchvision.datasets import ImageFolder
 from tqdm import tqdm
+from torch.utils.tensorboard import SummaryWriter
 
 from . import log, yaml, device, ClsMetric
 from .model import ImageClassifier
@@ -123,7 +124,7 @@ class Trainer(BaseExperiment):
         self.epoch = self._state['epoch']
         if self.step > 0:
             checkpt_file = self.last_checkpt if self.last_checkpt.exists() else self.best_checkpt
-            assert checkpt_file.exists(),\
+            assert checkpt_file.exists(), \
                 f'{self._state_file} exists with step > 0 but no checkpoint found at' \
                 f' {self.last_checkpt} and {self.best_checkpt}'
 
@@ -135,11 +136,14 @@ class Trainer(BaseExperiment):
                 log.info('Restoring optimizer state from checkpoint')
                 self.optimizer.load_state_dict(chkpt['optimizer_state'])
 
+        tbd_dir = self.work_dir / 'tensorboard'
+        tbd_dir.mkdir(exist_ok=True, parents=True)
+        self.tbd = SummaryWriter(log_dir=str(tbd_dir))
 
     def _get_optimizer(self, name=None, **args) -> torch.optim.Optimizer:
         name = name or self.conf['optimizer']['name']
         args = args or self.conf['optimizer']['args']
-        log.info(f"Optimizer {name}; args: {args}")
+        log.info(f"Optimizer {name}; args: {dict(args)}")
         assert name in Registry.optimizers, f'{name} unknown; known={list(Registry.optimizers.keys())}'
         log.info(f"Initializing {Registry.optimizers[name]} with args: {args}")
         return Registry.optimizers[name](params=self.model.parameters(), **args)
@@ -153,7 +157,6 @@ class Trainer(BaseExperiment):
         scheduler = Registry.schedulers[name](**args)
         log.info(f"Scheduler: {scheduler}")
         return scheduler
-
 
     @classmethod
     def sanity_check_conf(cls, conf):
@@ -196,6 +199,8 @@ class Trainer(BaseExperiment):
                                macro_recall=val_met.macro_recall)
             self.model.train()
         self.store_metrics(train_metrics, val_metrics)
+        if self.n_classes <= 40:  # Too many classes will be a mess
+            self.tbd_val_cls_metrics(val_met)
 
         by = self.conf['validation'].get('by', 'loss').lower()
         assert by in val_metrics, f'validation.by={by} unknown; known={list(val_metrics.keys())}'
@@ -234,6 +239,14 @@ class Trainer(BaseExperiment):
         yaml.dump(self._state, self._state_file)
         return self._state['recent_skips'] > patience  # stop training
 
+    def tbd_val_cls_metrics(self, val_metric: ClsMetric):
+        f1s = dict(zip(val_metric.clsmap, val_metric.f1))
+        precisions = dict(zip(val_metric.clsmap, val_metric.precision))
+        recalls = dict(zip(val_metric.clsmap, val_metric.recall))
+        self.tbd.add_scalars('ValF1', f1s, self.step)
+        self.tbd.add_scalars('ValPrecision', precisions, self.step)
+        self.tbd.add_scalars('ValRecall', recalls, self.step)
+
     def store_metrics(self, train_metrics, val_metrics):
         head = ['Time', 'Epoch', 'Step', 'TrainLoss', 'TrainAccuracy', 'ValLoss', 'ValAccuracy',
                 'ValMacroF1']
@@ -253,6 +266,13 @@ class Trainer(BaseExperiment):
                 if not name in self._state[key]:
                     self._state[key][name] = []
                 self._state[key][name].append(float(val))
+
+        self.tbd.add_scalars('Loss', dict(train=train_metrics['loss'], val=val_metrics['loss']),
+                             global_step=self.step)
+        self.tbd.add_scalars('Performance', dict(train_acc=train_metrics['accuracy'],
+                                                 val_acc=val_metrics['accuracy'],
+                                                 val_macrof1=val_metrics['macro_f1']),
+                             global_step=self.step)
 
     def validate(self, val_loader):
         losses = []
@@ -290,7 +310,7 @@ class Trainer(BaseExperiment):
 
         if self.step > 0:
             log.info(f'resuming from step {self.step}; max_steps:{max_step}')
-        if self.step >= max_step or self._trained_flag:
+        if self.step >= max_step or self._trained_flag.exists():
             log.warning("Skipping training.")
             if self.step >= max_step:
                 log.warning(f'Already trained till {self.step}. Tip: Increase max_steps')
@@ -374,6 +394,7 @@ def main(**args):
                 continue
             with out_file.open('w') as out:
                 eval_main(exp_dir=exp_dir, test_dir=test_dir, out=out)
+
 
 if __name__ == '__main__':
     main()
