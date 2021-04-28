@@ -34,10 +34,6 @@ validation:
     keep: 10                # keep these many models
     
 
-tests:
-   test:
-      data: ../data/msl/val
-
 
 
 

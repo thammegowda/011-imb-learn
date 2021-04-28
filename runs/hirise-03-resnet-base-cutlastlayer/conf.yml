@@ -31,9 +31,6 @@ validation:
     by: macro_f1
     keep: 10                # keep these many models
 
-tests:
-   test:
-      data: ../data/hirise/val
 
 
 
