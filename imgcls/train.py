@@ -216,7 +216,7 @@ class Trainer(BaseExperiment):
             self._state.update(dict(step=self.step, epoch=self.epoch, recent_skips=0))
         else:
             log.warning('This checkpoint was not an improvement; Not saving it')
-            self._state['recent_skips'] += 1
+            self._state['recent_skips'] = self._state('recent_skips', 0) + 1
             log.info(f'Patience={patience};  recent skips={self._state["recent_skips"]}')
         yaml.dump(self._state, self._state_file)
         return self._state['recent_skips'] > patience  # stop training
@@ -239,8 +239,7 @@ class Trainer(BaseExperiment):
             for name, val in metrics.items():
                 if not name in self._state[key]:
                     self._state[key][name] = []
-                digits = 6 if 'loss' in name else 2
-                self._state[key][name].append(round(float(val), digits))
+                self._state[key][name].append(float(val))
 
     def validate(self, val_loader):
         losses = []
