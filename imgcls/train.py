@@ -205,7 +205,7 @@ class Trainer(BaseExperiment):
             is_best = this_score >= max(all_scores)
 
         log.info(f"Epoch={self.epoch} Step={self.step}"
-                 f"\ntrain:{train_metrics}\nvalidation:{val_metrics}")
+                 f"\ntrain loss:{train_metrics['loss']:g} validation loss:{val_metrics['loss']:g}")
         if is_best:
             checkpt_name = 'checkpt_best.pkl'
             checkpt_path = self.models_dir / checkpt_name

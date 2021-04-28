@@ -58,10 +58,10 @@ class ClsMetric:
     def format(self, confusion=True, col_width=10):
         assert col_width >= 8
         builder = []
-        builder.append(f"MacroF1         {self.macro_f1:g} %\n")
-        builder.append(f"MacroPrecision  {self.macro_precision:g} %\n")
-        builder.append(f"MacroRecall     {self.macro_recall:g} %\n")
-        builder.append(f"Accuracy        {self.accuracy:g} %\n")
+        builder.append(f"MacroF1         {self.macro_f1:.2f} %\n")
+        builder.append(f"MacroPrecision  {self.macro_precision:.2f} %\n")
+        builder.append(f"MacroRecall     {self.macro_recall:.2f} %\n")
+        builder.append(f"Accuracy        {self.accuracy:.2f} %\n")
         builder.append("\n")
 
         max_cls_len = max(len(c)for c in self.clsmap)
@@ -70,7 +70,7 @@ class ClsMetric:
         builder.append("\n")
         for cls_idx, cls_name in enumerate(self.clsmap):
             builder.append(cls_name.rjust(max_cls_len))
-            builder += [f'{cell:g}' for cell in self.summary[:, cls_idx]]
+            builder += [f'{cell:.3g}' for cell in self.summary[:, cls_idx]]
             builder.append('\n')
 
         if confusion:
@@ -90,11 +90,11 @@ class ClsMetric:
 
             for cls_idx, (cls_name, row) in enumerate(zip(cls_names, self.confusion)):
                 builder.append(cls_name)
-                builder += [f'{cell}' for cell in row]
+                builder += [f'{cell:.3g}' for cell in row]
                 builder += [f'{self.total_gold[cls_idx]}', '\n']
 
             builder.append("[TotPreds]")
-            builder += [f'{cell:g}' for cell in self.total_preds]
+            builder += [f'{cell:.3g}' for cell in self.total_preds]
             builder += [f'{self.total_gold.sum()}', '\n']
 
         builder = [sub if sub == "\n" else sub.rjust(col_width) for sub in builder]
