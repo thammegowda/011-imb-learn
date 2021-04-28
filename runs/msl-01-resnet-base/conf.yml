@@ -1,0 +1,42 @@
+model:
+    name: ImageClassifier
+    args:
+        n_classes: 19
+        parent: resnext50_32x4d    # torchvision.models.<this>
+        intermediate: 50
+        dropout: 0.3
+
+optimizer:
+    name: Adam
+    args:
+        lr: 0.0005
+        betas: [0.9, 0.999]
+
+scheduler:
+    name: inverse_sqrt
+    args:
+        peak_lr: 0.00001
+        warmup: 1000
+
+train:
+    data: ../data/msl/train
+    batch_size: 10
+    max_step: 100_000
+    max_epoch: 100
+    # checkpoint: 1_000
+    checkpoint: 500
+
+validation:
+    data: ../data/msl/val
+    batch_size: 100
+    patience: 10
+    by: macro_f1
+    keep: 10                # keep these many models
+
+tests:
+   test:
+      data: ../data/msl/val
+
+
+
+

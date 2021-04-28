@@ -1,0 +1,47 @@
+MacroF1         58.5503 %
+MacroPrecision  59.4587 %
+MacroRecall     59.4205 %
+Accuracy        70.8474 %
+
+           [Class]      Refs     Preds   Correct   Precisn    Recall        F1
+         arm_cover         1         0         0         0         0         0
+          artifact        62        52        50   96.1538   80.6452   87.7193
+     close-up_rock        50        56        39   69.6429        78   73.5849
+ distant_landscape        14        19        14   73.6842       100   84.8485
+        drill_hole         5         5         4        80        80        80
+               drt         4         3         3       100        75   85.7143
+          drt_spot         1         3         0         0         0         0
+             float         5         0         0         0         0         0
+            layers        21        12         5   41.6667   23.8095    30.303
+ light-toned_veins         4         0         0         0         0         0
+mastcam_cal_target        12        12        12       100       100       100
+    nearby_surface        74        98        62   63.2653   83.7838    72.093
+         night_sky         3         4         3        75       100   85.7143
+  other_rover_part        11        15        10   66.6667   90.9091   76.9231
+              sand        19        11         7   63.6364   36.8421   46.6667
+               sun         5         4         4       100        80   88.8889
+             wheel         5         5         5       100       100       100
+       wheel_joint         1         1         1       100       100       100
+      wheel_tracks         3         0         0         0         0         0
+
+   vTr Pr> arm_…over  artifact clos…rock dist…cape dril…hole       drt  drt_spot     float    layers ligh…eins mast…rget near…face nigh…_sky othe…part      sand       sun     wheel whee…oint whee…acks [TotGold]
+ arm_…over         0         0         0         0         0         0         0         0         0         0         0         1         0         0         0         0         0         0         0         1
+  artifact         0        50         6         1         0         0         0         0         1         0         0         0         1         3         0         0         0         0         0        62
+ clos…rock         0         0        39         0         0         0         1         0         2         0         0         7         0         0         1         0         0         0         0        50
+ dist…cape         0         0         0        14         0         0         0         0         0         0         0         0         0         0         0         0         0         0         0        14
+ dril…hole         0         0         0         0         4         0         0         0         0         0         0         1         0         0         0         0         0         0         0         5
+       drt         0         0         0         0         0         3         0         0         0         0         0         0         0         1         0         0         0         0         0         4
+  drt_spot         0         0         1         0         0         0         0         0         0         0         0         0         0         0         0         0         0         0         0         1
+     float         0         0         1         0         0         0         0         0         0         0         0         4         0         0         0         0         0         0         0         5
+    layers         0         0         1         0         0         0         0         0         5         0         0        14         0         0         1         0         0         0         0        21
+ ligh…eins         0         0         2         0         0         0         0         0         0         0         0         2         0         0         0         0         0         0         0         4
+ mast…rget         0         0         0         0         0         0         0         0         0         0        12         0         0         0         0         0         0         0         0        12
+ near…face         0         0         3         4         1         0         1         0         0         0         0        62         0         1         2         0         0         0         0        74
+ nigh…_sky         0         0         0         0         0         0         0         0         0         0         0         0         3         0         0         0         0         0         0         3
+ othe…part         0         0         0         0         0         0         0         0         0         0         0         1         0        10         0         0         0         0         0        11
+      sand         0         1         3         0         0         0         1         0         4         0         0         3         0         0         7         0         0         0         0        19
+       sun         0         1         0         0         0         0         0         0         0         0         0         0         0         0         0         4         0         0         0         5
+     wheel         0         0         0         0         0         0         0         0         0         0         0         0         0         0         0         0         5         0         0         5
+ whee…oint         0         0         0         0         0         0         0         0         0         0         0         0         0         0         0         0         0         1         0         1
+ whee…acks         0         0         0         0         0         0         0         0         0         0         0         3         0         0         0         0         0         0         0         3
+[TotPreds]         0        52        56        19         5         3         3         0        12         0        12        98         4        15        11         4         5         1         0       300
