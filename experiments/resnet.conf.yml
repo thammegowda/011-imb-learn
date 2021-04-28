@@ -22,18 +22,19 @@ train:
     max_step: 10_000
     max_epoch: 100
     # checkpoint: 1_000
-    checkpoint: 50
+    checkpoint: 100
 
 validation:
     data: data/msl/val
     batch_size: 10
     patience: 10
     by: macro_f1
-    keep: 10                # keep these many models
+    keep: 10                  # keep these many models
 
 tests:
-   test:
-      data: data/msl/val
+    #test: data/msl/test       # dont use tests
+    val: data/msl/val
+
 
 
 

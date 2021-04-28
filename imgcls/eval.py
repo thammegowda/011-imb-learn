@@ -41,6 +41,7 @@ class Evaluator(BaseExperiment):
         chkpt = torch.load(self.best_checkpt, map_location=device)
         log.info(f'Restoring model state from checkpoint {self.best_checkpt}; step={chkpt["step"]}')
         self.model.load_state_dict(chkpt['model_state'])
+        self.checkpt_step = chkpt["step"]
 
 
 
@@ -74,12 +75,15 @@ class Evaluator(BaseExperiment):
 def main(**args):
     args = args or vars(parse_args())
     evaluator = Evaluator(args['exp_dir'])
+    conf = evaluator.conf
     img_paths = []
     skips = 0
+    batch_size = args.get('batch_size', conf['validation'].get('batch_size',
+                                                               conf['train']['batch_size']))
     if args.get('test_dir'):
         log.info(f"Reading images and their labels from {args['test_dir']}")
         with torch.no_grad():
-            result = evaluator.predict_dir(args['test_dir'], batch_size=args['batch_size'])
+            result = evaluator.predict_dir(args['test_dir'], batch_size=batch_size)
         args['out'].write(result.format(confusion=True))
     else:
         log.info(f"Reading image paths from {args['inp']}")
@@ -92,7 +96,7 @@ def main(**args):
             img_paths.append(path)
         log.info(f"Total images: {len(img_paths)}; skipped={skips}")
         with torch.no_grad():
-            result = evaluator.predict_files(img_paths, batch_size=args['batch_size'])
+            result = evaluator.predict_files(img_paths, batch_size=batch_size)
         for path, label, prob in result:
             args['out'].write(f'{path}\t{label}\t{prob:g}\n')
     log.info("Done")

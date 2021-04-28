@@ -58,17 +58,21 @@ class BaseExperiment:
                 assert line_num == int(idx)
                 self.classes.append(name)
 
+        self._trained_flag = self.work_dir / '_TRAINED'  # fully trained
+
     @property
     def best_checkpt(self) -> Optional[Path]:
-        checkpt = self.models_dir / 'checkpt_best.pkl'
-        # assert checkpt.exists(), f'Invalid state: {checkpt} expected but not found'
-        return checkpt
+        return self.models_dir / 'checkpt_best.pkl'
+
+    @property
+    def last_checkpt(self) -> Optional[Path]:
+        return self.models_dir / 'checkpt_last.pkl'
 
     def _get_model(self, name=None, **args) -> nn.Module:
         name = name or self.conf['model']['name']
         args = args or self.conf['model']['args']
         assert name in Registry.models, f'model={name} is unknown; known={Registry.models.keys()}'
-        log.info(f"Model {name}; args: {args}")
+        log.info(f"Model {name}; args: {dict(args)}")
         return Registry.models[name](**args)
 
 
@@ -107,20 +111,24 @@ class Trainer(BaseExperiment):
         self.optimizer = optimizer or self._get_optimizer()
         self.scheduler = self._get_lr_scheduler()
 
-        self._state = dict(step=0, epoch=0, last_checkpt=None,
+        self._state = dict(step=0, epoch=0, best_step=0,
                            train_metric=dict(loss=[], accuracy=[]),
                            val_metric=dict(loss=[], accuracy=[]))
         self._state_file = self.work_dir / 'state.yml'
         if self._state_file.exists() and self._state_file.stat().st_size > 0:
             self._state = yaml.load(self._state_file)
-            log.info(f"state={dict(self._state)}")
+            log.info(f"Restored state info from state={self._state_file}")
 
         self.step = self._state['step']
         self.epoch = self._state['epoch']
         if self.step > 0:
-            assert self.best_checkpt.exists(), f'{self._state_file} exists with step > 0 but' \
-                                               f' no checkpoint found at {self.best_checkpt}'
-            chkpt = torch.load(self.best_checkpt, map_location=device)
+            checkpt_file = self.last_checkpt if self.last_checkpt.exists() else self.best_checkpt
+            assert checkpt_file.exists(),\
+                f'{self._state_file} exists with step > 0 but no checkpoint found at' \
+                f' {self.last_checkpt} and {self.best_checkpt}'
+
+            chkpt = torch.load(checkpt_file, map_location=device)
+            self.step, self.epoch = chkpt['step'], chkpt['epoch']
             log.info(f'Restoring model state from checkpoint')
             self.model.load_state_dict(chkpt['model_state'])
             if 'optimizer_state' in chkpt:
@@ -166,6 +174,10 @@ class Trainer(BaseExperiment):
         assert hasattr(torchvision.models, parent), f'parent model {parent} unknown to torchvision'
         assert callable(getattr(torchvision.models, parent)), f'parent model {parent} is invalid'
 
+        if conf.get('tests'):
+            for name, path in conf['tests'].items():
+                assert Path(path).exists(), f'test dir {name}={path} does not exist. PWD={pwd}'
+
     def _checkpt_name(self, step, train_loss, val_loss):
         return f'model_{step:06d}_{train_loss:.5f}_{val_loss:.5f}.pkl'
 
@@ -200,24 +212,24 @@ class Trainer(BaseExperiment):
 
         log.info(f"Epoch={self.epoch} Step={self.step}"
                  f"\ntrain loss:{train_metrics['loss']:g} validation loss:{val_metrics['loss']:g}")
+        chkpt_state = dict(
+            model_state=self.model.state_dict(),
+            optimizer_state=self.optimizer.state_dict(),
+            step=self.step,
+            epoch=self.epoch,
+            train_metrics=train_metrics,
+            val_metrics=val_metrics)
+
+        torch.save(chkpt_state, self.last_checkpt)
+        self._state.update(dict(step=self.step, epoch=self.epoch))
+
         if is_best:
-            checkpt_name = 'checkpt_best.pkl'
-            checkpt_path = self.models_dir / checkpt_name
-
-            checkpt = dict(
-                model_state=self.model.state_dict(),
-                optimizer_state=self.optimizer.state_dict(),
-                step=self.step,
-                epoch=self.epoch,
-                train_metrics=train_metrics,
-                val_metrics=val_metrics)
-            log.info('saving this checkpoint')
-            torch.save(checkpt, checkpt_path)
-            self._state.update(dict(step=self.step, epoch=self.epoch, recent_skips=0))
+            log.info('saving this checkpoint as best')
+            torch.save(chkpt_state, self.best_checkpt)
+            self._state.update(dict(best_step=self.step, recent_skips=0))
         else:
-            log.warning('This checkpoint was not an improvement; Not saving it')
+            log.warning('This checkpoint was not an improvement')
             self._state['recent_skips'] = self._state.get('recent_skips', 0) + 1
-
             log.info(f'Patience={patience};  recent skips={self._state["recent_skips"]}')
         yaml.dump(self._state, self._state_file)
         return self._state['recent_skips'] > patience  # stop training
@@ -278,7 +290,13 @@ class Trainer(BaseExperiment):
 
         if self.step > 0:
             log.info(f'resuming from step {self.step}; max_steps:{max_step}')
-
+        if self.step >= max_step or self._trained_flag:
+            log.warning("Skipping training.")
+            if self.step >= max_step:
+                log.warning(f'Already trained till {self.step}. Tip: Increase max_steps')
+            elif self._trained_flag.exists():
+                log.warning(f"Training was previously converged. Tip: rm {self._trained_flag}")
+            return
         force_stop = False  # early stop when val metric goes up
         while not force_stop and self.step <= max_step and self.epoch <= max_epoch:
             train_losses = []
@@ -311,6 +329,7 @@ class Trainer(BaseExperiment):
                         train_accs.clear()
                         if force_stop:
                             log.info("Force early stopping the training")
+                            self._trained_flag.touch()
                             break
 
                     if self.step > max_step:
@@ -338,11 +357,23 @@ def parse_args():
 
 def main(**args):
     args = args or vars(parse_args())
-    trainer = Trainer(args['exp_dir'])
+    exp_dir: Path = args['exp_dir']
+    trainer = Trainer(exp_dir)
     train_args: Dict = copy(trainer.conf['train'])
     train_args.pop('data', None)
     trainer.train(**train_args)
 
+    if trainer.conf.get('tests'):
+        log.info('Running tests')
+        from .eval import main as eval_main
+        for name, test_dir in trainer.conf['tests'].items():
+            step_num = trainer._state.get("best_step", trainer._state["step"])
+            out_file = exp_dir / f'result.step{step_num}.{name}.txt'
+            if out_file.exists() and out_file.stat().st_size > 0:
+                log.info(f"{out_file} exists; skipping {test_dir}")
+                continue
+            with out_file.open('w') as out:
+                eval_main(exp_dir=exp_dir, test_dir=test_dir, out=out)
 
 if __name__ == '__main__':
     main()

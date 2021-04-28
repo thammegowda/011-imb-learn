@@ -90,11 +90,11 @@ class ClsMetric:
 
             for cls_idx, (cls_name, row) in enumerate(zip(cls_names, self.confusion)):
                 builder.append(cls_name)
-                builder += [f'{cell:.3g}' for cell in row]
+                builder += [f'{cell}' for cell in row]
                 builder += [f'{self.total_gold[cls_idx]}', '\n']
 
             builder.append("[TotPreds]")
-            builder += [f'{cell:.3g}' for cell in self.total_preds]
+            builder += [f'{cell}' for cell in self.total_preds]
             builder += [f'{self.total_gold.sum()}', '\n']
 
         builder = [sub if sub == "\n" else sub.rjust(col_width) for sub in builder]
