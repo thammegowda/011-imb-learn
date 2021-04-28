@@ -6,7 +6,7 @@ import logging as log
 from pathlib import Path
 from typing import Optional, Dict
 from copy import copy
-
+from datetime import datetime
 import numpy as np
 import torch
 from torch import nn
@@ -113,7 +113,7 @@ class Trainer(BaseExperiment):
         self._state_file = self.work_dir / 'state.yml'
         if self._state_file.exists() and self._state_file.stat().st_size > 0:
             self._state = yaml.load(self._state_file)
-            log.info(f"state={self._state}")
+            log.info(f"state={dict(self._state)}")
 
         self.step = self._state['step']
         self.epoch = self._state['epoch']
@@ -183,13 +183,7 @@ class Trainer(BaseExperiment):
                                macro_precision=val_met.macro_precision,
                                macro_recall=val_met.macro_recall)
             self.model.train()
-
-        # YAML has trouble serializing numpy float64 types
-        for key, metrics in [('train_metric', train_metrics), ('val_metric', val_metrics)]:
-            for name, val in metrics.items():
-                if not name in self._state[key]:
-                    self._state[key][name] = []
-                self._state[key][name].append(float(val))
+        self.store_metrics(train_metrics, val_metrics)
 
         by = self.conf['validation'].get('by', 'loss').lower()
         assert by in val_metrics, f'validation.by={by} unknown; known={list(val_metrics.keys())}'
@@ -226,6 +220,27 @@ class Trainer(BaseExperiment):
             log.info(f'Patience={patience};  recent skips={self._state["recent_skips"]}')
         yaml.dump(self._state, self._state_file)
         return self._state['recent_skips'] > patience  # stop training
+
+    def store_metrics(self, train_metrics, val_metrics):
+        head = ['Time', 'Epoch', 'Step', 'TrainLoss', 'TrainAccuracy', 'ValLoss', 'ValAccuracy',
+                'ValMacroF1']
+        row = [datetime.now().strftime('%Y-%m-%d %H:%M:%S'), '%3d' % self.epoch, '%5d' % self.step,
+               '%.6f' % train_metrics['loss'], '%.2f' % train_metrics['accuracy'],
+               '%.6f' % val_metrics['loss'], '%.2f' % val_metrics['accuracy'],
+               '%.2f' % val_metrics['macro_f1']]
+        scores_file = self.work_dir / 'scores.tsv'
+        new_file = not scores_file.exists()
+        with scores_file.open('a') as f:
+            if new_file:
+                f.write('\t'.join(head) + '\n')
+            f.write('\t'.join(row) + '\n')
+        # YAML has trouble serializing numpy float64 types
+        for key, metrics in [('train_metric', train_metrics), ('val_metric', val_metrics)]:
+            for name, val in metrics.items():
+                if not name in self._state[key]:
+                    self._state[key][name] = []
+                digits = 6 if 'loss' in name else 2
+                self._state[key][name].append(round(float(val), digits))
 
     def validate(self, val_loader):
         losses = []
