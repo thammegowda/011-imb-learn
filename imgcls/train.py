@@ -216,7 +216,8 @@ class Trainer(BaseExperiment):
             self._state.update(dict(step=self.step, epoch=self.epoch, recent_skips=0))
         else:
             log.warning('This checkpoint was not an improvement; Not saving it')
-            self._state['recent_skips'] = self._state('recent_skips', 0) + 1
+            self._state['recent_skips'] = self._state.get('recent_skips', 0) + 1
+
             log.info(f'Patience={patience};  recent skips={self._state["recent_skips"]}')
         yaml.dump(self._state, self._state_file)
         return self._state['recent_skips'] > patience  # stop training

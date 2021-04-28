@@ -11,4 +11,6 @@ data/*
 !data/*.sh
 .idea
 .ipynb_checkpoints
-runs/
+runs/*
+!runs/*.sh
+!runs/*/*.yml
