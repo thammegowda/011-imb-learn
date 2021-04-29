@@ -4,7 +4,7 @@
 # Created: 4/23/21
 import logging as log
 from pathlib import Path
-from typing import Optional, Dict
+from typing import Optional, Dict, List
 from copy import copy
 from datetime import datetime
 import numpy as np
@@ -55,7 +55,7 @@ class BaseExperiment:
         if self.class_stats.exists():
             self.classes = []
             for line_num, line in enumerate(self.class_stats.read_text().splitlines()):
-                idx, name = line.strip().split(",")
+                idx, name = line.strip().split(",")[:2]
                 assert line_num == int(idx)
                 self.classes.append(name)
 
@@ -101,13 +101,8 @@ class Trainer(BaseExperiment):
         assert len(self.classes) == self.n_classes, \
             f'Dataset has {len(self.classes)}, but in conf has model.n_classes={self.n_classes}'
 
-        # todo: extract training and validation frequencies per each class
-        class_stats = self.work_dir / 'classes.csv'
-        if not class_stats.exists():
-            txt = "\n".join(f"{i},{name}" for i, name in enumerate(self.classes))
-            class_stats.write_text(txt + '\n')
-
-        self.criterion = nn.CrossEntropyLoss()
+        self.cls_freqs = self.get_train_freqs()
+        self.criterion = self._get_criterion()
         self.model = (model or self._get_model()).to(device)
         self.optimizer = optimizer or self._get_optimizer()
         self.scheduler = self._get_lr_scheduler()
@@ -140,6 +135,51 @@ class Trainer(BaseExperiment):
         tbd_dir.mkdir(exist_ok=True, parents=True)
         self.tbd = SummaryWriter(log_dir=str(tbd_dir))
 
+    def _get_criterion(self):
+        if 'criterion' not in self.conf: # default
+            return nn.CrossEntropyLoss()
+        conf = self.conf['criterion']
+        name, args = conf['name'], conf.get('args', {})
+        log.info(f"Criteria = {name} args={dict(args)}")
+        weight = None
+        weight_by = args.get('weight')
+        if weight_by:
+            freqs = torch.tensor(self.cls_freqs, dtype=torch.float, requires_grad=False)
+            min_freq = freqs.min()
+            assert min_freq > 1  # at least 2 samples
+            known = ('inverse_frequency', 'inverse_log', 'information_content')
+            if weight_by == 'inverse_frequency':
+                weight = freqs.median() / freqs
+            elif weight_by == 'inverse_log':
+                weight = 1 / freqs.log()
+            elif weight_by == 'information_content':
+                # https://en.wikipedia.org/wiki/Information_content
+                probs = freqs / freqs.sum()
+                weight = -probs.log2()
+            elif isinstance(weight_by, list) and len(weight_by) == self.n_classes:
+                weight = torch.tensor(weight_by, dtype=torch.float)
+            else:
+                raise Exception(f'criterion.args.weight={weight_by} unknown; known={known}')
+            log.info(f'class weights = {dict(zip(self.classes, weight.tolist()))}')
+        if name == 'cross_entropy':
+            criterion = nn.CrossEntropyLoss(reduction='mean', weight=weight)
+        else:
+            raise Exception(f'criterion.name={name} unknown')
+        return criterion
+
+
+    def get_train_freqs(self):
+        class_stats = self.work_dir / 'classes.csv'
+        if not class_stats.exists():
+            cls_freqs = self.get_class_frequencies(Path(self.conf['train']['data']))
+            lines = []
+            for idx, (cls_name, freq) in enumerate(zip(self.classes, cls_freqs)):
+                lines.append(f"{idx},{cls_name},{freq}")
+            class_stats.write_text("\n".join(lines))
+        # third column has frequency
+        return [int(line.strip().split(',')[2])
+                          for line in class_stats.read_text().splitlines()]
+
     def _get_optimizer(self, name=None, **args) -> torch.optim.Optimizer:
         name = name or self.conf['optimizer']['name']
         args = args or self.conf['optimizer']['args']
@@ -157,6 +197,14 @@ class Trainer(BaseExperiment):
         scheduler = Registry.schedulers[name](**args)
         log.info(f"Scheduler: {scheduler}")
         return scheduler
+
+    def get_class_frequencies(self, img_folder: Path) -> List[int]:
+        freqs = [-1] * self.n_classes
+        for idx, cls_name in enumerate(self.classes):
+            cls_dir = img_folder / cls_name
+            assert cls_dir.exists()
+            freqs[idx] = sum(1 for _ in cls_dir.glob('*.*'))
+        return freqs
 
     @classmethod
     def sanity_check_conf(cls, conf):

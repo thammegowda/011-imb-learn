@@ -15,7 +15,12 @@ scheduler:
     args:
         peak_lr: 0.0005
         warmup: 100
-
+criterion:
+    name: cross_entropy
+    args:
+        weight: inverse_frequency
+        #weight: inverse_log
+        #weight: information_content
 train:
     data: data/msl/train
     batch_size: 1
