@@ -55,50 +55,35 @@ class ClsMetric:
             matrix[gold][pred] += 1
         return matrix
 
-    def format(self, confusion=True, col_width=10):
+    def format(self, confusion=True, col_width=10, delim = '\t'):
         assert col_width >= 8
         builder = []
-        builder.append(f"MacroF1         {self.macro_f1:.2f} %\n")
-        builder.append(f"MacroPrecision  {self.macro_precision:.2f} %\n")
-        builder.append(f"MacroRecall     {self.macro_recall:.2f} %\n")
-        builder.append(f"Accuracy        {self.accuracy:.2f} %\n")
-        builder.append("\n")
+        builder.append(["MacroF1", f"{self.macro_f1:.2f} %"])
+        builder.append(["MacroPrecision", f"{self.macro_precision:.2f} %"])
+        builder.append(["MacroRecall", f"{self.macro_recall:.2f} %"])
+        builder.append(["Accuracy", f"{self.accuracy:.2f} %"])
+        builder.append([])
+        row = ["[Class]"] + [col for col in self.col_head]
+        builder.append(row)
 
-        max_cls_len = max(len(c)for c in self.clsmap)
-        builder.append("[Class]".rjust(max_cls_len))
-        builder += [col for col in self.col_head]
-        builder.append("\n")
         for cls_idx, cls_name in enumerate(self.clsmap):
-            builder.append(cls_name.rjust(max_cls_len))
-            builder += [f'{cell:.3g}' for cell in self.summary[:, cls_idx]]
-            builder.append('\n')
+            row = [cls_name] + [f'{cell:.4g}' for cell in self.summary[:, cls_idx]]
+            builder.append(row)
 
         if confusion:
-
-            def truncate(name, width=col_width - 1):
-                assert width % 2 == 1, 'odd width expected'
-                if len(name) >= width:
-                    half = width // 2
-                    name = name[:half] + '…' + name[-half:]
-                return name
-
-            cls_names = [truncate(cn) for cn in self.clsmap]
-            builder.append("\n")
-            builder.append("vTr Pr>")  # header
-            builder += [cls_name for cls_name in cls_names]
-            builder += ["[TotGold]", "\n"]
-
+            builder.append([]) # blank line
+            cls_names = [cn for cn in self.clsmap]
+            builder.append(["vTr Pr>"] + [c for c in cls_names] + ["[TotGold]"])
             for cls_idx, (cls_name, row) in enumerate(zip(cls_names, self.confusion)):
-                builder.append(cls_name)
-                builder += [f'{cell}' for cell in row]
-                builder += [f'{self.total_gold[cls_idx]}', '\n']
+                row = [cls_name] + [f'{cell}' for cell in row] + [f'{self.total_gold[cls_idx]}']
+                builder.append(row)
 
-            builder.append("[TotPreds]")
-            builder += [f'{cell}' for cell in self.total_preds]
-            builder += [f'{self.total_gold.sum()}', '\n']
+            row = ["[TotPreds]"] + [f'{cell}' for cell in self.total_preds] \
+                  + [f'{self.total_gold.sum()}']
+            builder.append(row)
 
-        builder = [sub if sub == "\n" else sub.rjust(col_width) for sub in builder]
-        return ''.join(builder)
+        body = '\n'.join([delim.join(row) for row in builder])
+        return body
 
 
 if __name__ == '__main__':
