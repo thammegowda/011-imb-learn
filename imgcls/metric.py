@@ -42,9 +42,8 @@ class ClsMetric:
         self.col_head = cols
 
         self.macro_f1 = np.mean(self.f1)
-        self.macro_precision = np.mean(self.precision)
-        self.macro_recall = np.mean(self.recall)
-        self.accuracy = self.micro_f1 = np.sum(self.f1 * self.total_gold) / np.sum(self.total_gold)
+        self.micro_f1 = np.sum(self.f1 * self.total_gold) / np.sum(self.total_gold)
+        self.accuracy = 100 * self.confusion.diagonal().sum() / np.sum(self.total_gold)
 
 
     @classmethod
@@ -59,8 +58,7 @@ class ClsMetric:
         assert col_width >= 8
         builder = []
         builder.append(["MacroF1", f"{self.macro_f1:.2f} %"])
-        builder.append(["MacroPrecision", f"{self.macro_precision:.2f} %"])
-        builder.append(["MacroRecall", f"{self.macro_recall:.2f} %"])
+        builder.append(["MicroF1", f"{self.micro_f1:.2f} %"])
         builder.append(["Accuracy", f"{self.accuracy:.2f} %"])
         builder.append([])
         row = ["[Class]"] + [col for col in self.col_head]
@@ -91,4 +89,4 @@ if __name__ == '__main__':
     truth = [0, 0, 0, 0, 1, 1, 1, 2]
     clsmap = ["cat", "dog", "goat"]
     metric = ClsMetric(prediction=preds, truth=truth, clsmap=clsmap)
-    print(metric.format())
+    print(metric.format(delim=','))
