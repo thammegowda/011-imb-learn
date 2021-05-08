@@ -1,0 +1,53 @@
+model:
+    name: ImageClassifier
+    args:
+        n_classes: 19
+        intermediate: 40
+        dropout: 0.2
+        parent: resnext50_32x4d    # torchvision.models.<this>
+optimizer:
+    name: Adam
+    args:
+        lr: 0.0005
+        betas: [0.9, 0.999]
+scheduler:
+    name: inverse_sqrt
+    args:
+        peak_lr: 0.0005
+        warmup: 100
+criterion:
+    name: cross_entropy
+    args:
+        weight: inverse_frequency
+        #weight: inverse_log
+        #weight: information_content
+prep:
+    vocab: bpe
+    max_types: 8000
+    min_freq: 2
+    
+
+train:
+    data: data/mlm/cc_news-train.dedup.tok.1M
+    batch_size: 1
+    #max_step: 10_000
+    max_step: 300
+    max_epoch: 100
+    # checkpoint: 1_000
+    checkpoint: 100
+
+validation:
+    data: data/msl/val
+    batch_size: 10
+    patience: 10
+    by: macro_f1
+    keep: 10                  # keep these many models
+
+tests:
+    #test: data/msl/test       # dont use tests
+    val: data/msl/val
+
+
+
+
+

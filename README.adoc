@@ -2,28 +2,20 @@
 :toc:
 
 '''
-== What, Why, and How
-Multi-class classification with imbalanced learning.
 
-== Datasets
+Improving classification performance on imbalanced class distributions.
 
-Run `link:data/get-data.sh[]` to download datasets.
+== Tasks Overview
+. Image Classification
+. Masked Language Modeling
+. Machine Translation
 
-  cd data && ./get-data.sh
 
-This script download the following datasets:
+include::imgcls.adoc[]
 
-.Image Classification
-* Mars Orbital Image (HiRISE): https://zenodo.org/record/4002935
-* MSL Curiosity Rover: https://zenodo.org/record/4033453
+include::mlm.adoc[]
 
-.Machine Translation
-
-    TODO:
-
-// * Chinese-English
-* Hindi-English
-// * Kannada-English
+include::nmt.adoc[]
 
 
 

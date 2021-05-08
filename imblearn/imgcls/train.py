@@ -4,96 +4,39 @@
 # Created: 4/23/21
 import logging as log
 from pathlib import Path
-from typing import Optional, Dict, List
+from typing import Dict, List
 from copy import copy
 from datetime import datetime
 import numpy as np
 import torch
-from torch import nn
-from torch import optim
+
 from torch.utils.data import DataLoader
 import torchvision
 from torchvision import transforms as T
 from torchvision.datasets import ImageFolder
 from tqdm import tqdm
-from torch.utils.tensorboard import SummaryWriter
 
-from . import log, yaml, device, ClsMetric
-from .model import ImageClassifier
-from .scheduler import InverseSqrtSchedule, NoamSchedule, LRSchedule
+from imblearn import log, yaml, device, ClsMetric
+from imblearn.common.exp import BaseTrainer
 
 
-class Registry:
-    models = dict(ImageClassifier=ImageClassifier)
-    optimizers = dict(Adam=optim.Adam, SGB=optim.SGD, Adagrad=optim.Adagrad, AdamW=optim.AdamW,
-                      Adadelta=optim.Adadelta, SparseAdam=optim.SparseAdam)
-    schedulers = dict(inverse_sqrt=InverseSqrtSchedule, noam=NoamSchedule)
+normalize = T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+eval_transform = T.Compose([T.Resize(256), T.CenterCrop(224),
+                                         T.ToTensor(), normalize])
 
+class Trainer(BaseTrainer):
 
-class BaseExperiment:
-
-    def __init__(self, work_dir: Path, device=device, log_file=None):
-        self.work_dir = work_dir
-        self._conf_file = work_dir / 'conf.yml'
-        assert self._conf_file.exists()
-        self.conf = yaml.load(self._conf_file)
-        self.device = device
-        self.models_dir = work_dir / 'models'
-        self.models_dir.mkdir(parents=True, exist_ok=True)
-        if not log_file:
-            logs_dir = work_dir / 'logs'
-            logs_dir.mkdir(parents=True, exist_ok=True)
-            log_file = logs_dir / 'log.log'
-        log.update_file_handler(log_file)
-
-        # these magic numbers are required for imagenet pretrained models
-        self.normalize = T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-        self.eval_transform = T.Compose([T.Resize(256), T.CenterCrop(224),
-                                         T.ToTensor(), self.normalize])
-
-        self.class_stats = self.work_dir / 'classes.csv'
-        if self.class_stats.exists():
-            self.classes = []
-            for line_num, line in enumerate(self.class_stats.read_text().splitlines()):
-                idx, name = line.strip().split(",")[:2]
-                assert line_num == int(idx)
-                self.classes.append(name)
-
-        self._trained_flag = self.work_dir / '_TRAINED'  # fully trained
-
-    @property
-    def best_checkpt(self) -> Optional[Path]:
-        return self.models_dir / 'checkpt_best.pkl'
-
-    @property
-    def last_checkpt(self) -> Optional[Path]:
-        return self.models_dir / 'checkpt_last.pkl'
-
-    def _get_model(self, name=None, **args) -> nn.Module:
-        name = name or self.conf['model']['name']
-        args = args or self.conf['model']['args']
-        assert name in Registry.models, f'model={name} is unknown; known={Registry.models.keys()}'
-        log.info(f"Model {name}; args: {dict(args)}")
-        return Registry.models[name](**args)
-
-
-class Trainer(BaseExperiment):
-
-    def __init__(self, work_dir: Path, model=None, optimizer=None, device=device):
-
-        logs_dir = work_dir / 'logs'
-        logs_dir.mkdir(parents=True, exist_ok=True)
-        log_file = logs_dir / 'trainer.log'
-        super().__init__(work_dir=work_dir, device=device, log_file=log_file)
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self.sanity_check_conf(self.conf)
 
         # these magic numbers are required for imagenet pretrained models
         self.train_transform = T.Compose([T.RandomResizedCrop(224),
                                           T.RandomHorizontalFlip(),
-                                          T.ToTensor(), self.normalize])
+                                          T.ToTensor(), normalize])
 
         self.train_data = ImageFolder(self.conf['train']['data'], transform=self.train_transform)
-        self.val_data = ImageFolder(self.conf['validation']['data'], transform=self.eval_transform)
+        self.val_data = ImageFolder(self.conf['validation']['data'], transform=eval_transform)
         self.classes = self.train_data.classes
         assert self.classes == self.val_data.classes, 'Training and val classes mismatch'
 
@@ -102,71 +45,6 @@ class Trainer(BaseExperiment):
             f'Dataset has {len(self.classes)}, but in conf has model.n_classes={self.n_classes}'
 
         self.cls_freqs = self.get_train_freqs()
-        self.criterion = self._get_criterion()
-        self.model = (model or self._get_model()).to(device)
-        self.optimizer = optimizer or self._get_optimizer()
-        self.scheduler = self._get_lr_scheduler()
-
-        self._state = dict(step=0, epoch=0, best_step=0,
-                           train_metric=dict(loss=[], accuracy=[]),
-                           val_metric=dict(loss=[], accuracy=[]))
-        self._state_file = self.work_dir / 'state.yml'
-        if self._state_file.exists() and self._state_file.stat().st_size > 0:
-            self._state = yaml.load(self._state_file)
-            log.info(f"Restored state info from state={self._state_file}")
-
-        self.step = self._state['step']
-        self.epoch = self._state['epoch']
-        if self.step > 0:
-            checkpt_file = self.last_checkpt if self.last_checkpt.exists() else self.best_checkpt
-            assert checkpt_file.exists(), \
-                f'{self._state_file} exists with step > 0 but no checkpoint found at' \
-                f' {self.last_checkpt} and {self.best_checkpt}'
-
-            chkpt = torch.load(checkpt_file, map_location=device)
-            self.step, self.epoch = chkpt['step'], chkpt['epoch']
-            log.info(f'Restoring model state from checkpoint')
-            self.model.load_state_dict(chkpt['model_state'])
-            if 'optimizer_state' in chkpt:
-                log.info('Restoring optimizer state from checkpoint')
-                self.optimizer.load_state_dict(chkpt['optimizer_state'])
-
-        tbd_dir = self.work_dir / 'tensorboard'
-        tbd_dir.mkdir(exist_ok=True, parents=True)
-        self.tbd = SummaryWriter(log_dir=str(tbd_dir))
-
-    def _get_criterion(self):
-        if 'criterion' not in self.conf: # default
-            return nn.CrossEntropyLoss()
-        conf = self.conf['criterion']
-        name, args = conf['name'], conf.get('args', {})
-        log.info(f"Criteria = {name} args={dict(args)}")
-        weight = None
-        weight_by = args.get('weight')
-        if weight_by:
-            freqs = torch.tensor(self.cls_freqs, dtype=torch.float, requires_grad=False)
-            min_freq = freqs.min()
-            assert min_freq > 1  # at least 2 samples
-            known = ('inverse_frequency', 'inverse_log', 'information_content')
-            if weight_by == 'inverse_frequency':
-                weight = freqs.median() / freqs
-            elif weight_by == 'inverse_log':
-                weight = 1 / freqs.log()
-            elif weight_by == 'information_content':
-                # https://en.wikipedia.org/wiki/Information_content
-                probs = freqs / freqs.sum()
-                weight = -probs.log2()
-            elif isinstance(weight_by, list) and len(weight_by) == self.n_classes:
-                weight = torch.tensor(weight_by, dtype=torch.float)
-            else:
-                raise Exception(f'criterion.args.weight={weight_by} unknown; known={known}')
-            log.info(f'class weights = {dict(zip(self.classes, weight.tolist()))}')
-        if name == 'cross_entropy':
-            criterion = nn.CrossEntropyLoss(reduction='mean', weight=weight)
-        else:
-            raise Exception(f'criterion.name={name} unknown')
-        return criterion
-
 
     def get_train_freqs(self):
         class_stats = self.work_dir / 'classes.csv'
@@ -179,24 +57,6 @@ class Trainer(BaseExperiment):
         # third column has frequency
         return [int(line.strip().split(',')[2])
                           for line in class_stats.read_text().splitlines()]
-
-    def _get_optimizer(self, name=None, **args) -> torch.optim.Optimizer:
-        name = name or self.conf['optimizer']['name']
-        args = args or self.conf['optimizer']['args']
-        log.info(f"Optimizer {name}; args: {dict(args)}")
-        assert name in Registry.optimizers, f'{name} unknown; known={list(Registry.optimizers.keys())}'
-        log.info(f"Initializing {Registry.optimizers[name]} with args: {args}")
-        return Registry.optimizers[name](params=self.model.parameters(), **args)
-
-    def _get_lr_scheduler(self, name=None, **args) -> LRSchedule:
-        name = name or self.conf['scheduler']['name']
-        args = args or self.conf['scheduler']['args']
-
-        assert name in Registry.schedulers, f'scheduler {name} unknown;' \
-                                            f' known: {Registry.schedulers.keys()}'
-        scheduler = Registry.schedulers[name](**args)
-        log.info(f"Scheduler: {scheduler}")
-        return scheduler
 
     def get_class_frequencies(self, img_folder: Path) -> List[int]:
         freqs = [-1] * self.n_classes

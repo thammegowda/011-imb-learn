@@ -1,29 +1,29 @@
 model:
-    name: ImageClassifier
+    name: image_classifier
     args:
         n_classes: 19
         intermediate: 40
         dropout: 0.2
         parent: resnext50_32x4d    # torchvision.models.<this>
 optimizer:
-    name: Adam
+    name: adam
     args:
         lr: 0.0005
         betas: [0.9, 0.999]
-scheduler:
+schedule:
     name: inverse_sqrt
     args:
         peak_lr: 0.0005
         warmup: 100
-criterion:
+loss:
     name: cross_entropy
     args:
-        weight: inverse_frequency
+        weight_by: inverse_frequency
         #weight: inverse_log
         #weight: information_content
 train:
-    data: data/msl/train
-    batch_size: 1
+    data: data/imgcls/msl/train
+    batch_size: 2
     #max_step: 10_000
     max_step: 300
     max_epoch: 100
@@ -31,15 +31,14 @@ train:
     checkpoint: 100
 
 validation:
-    data: data/msl/val
+    data: data/imgcls/msl/val
     batch_size: 10
     patience: 10
     by: macro_f1
-    keep: 10                  # keep these many models
 
 tests:
     #test: data/msl/test       # dont use tests
-    val: data/msl/val
+    val: data/imgcls/msl/val
 
 
 
