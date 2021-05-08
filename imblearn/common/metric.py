@@ -24,24 +24,29 @@ class ClsMetric:
         assert 0 <= max(prediction) <= self.n_classes
         assert 0 <= max(truth) <= self.n_classes
         self.confusion = self.confusion_matrix(self.n_classes, prediction, truth)
-        cols = ['Refs', 'Preds', 'Correct', 'Precisn', 'Recall', 'F1']
-        summary = np.zeros((len(cols), self.n_classes), dtype=np.float32)
-        summary[cols.index('Refs'), :] = self.total_gold = self.confusion.sum(axis=1)
-        summary[cols.index('Preds'), :] = self.total_preds = self.confusion.sum(axis=0)
+        self.total_gold = self.confusion.sum(axis=1)
+        self.total_preds = self.confusion.sum(axis=0)
         assert self.total_preds.sum() == self.total_gold.sum()
 
         epsilon = 1e-9
-        summary[cols.index('Correct'), :] = self.correct = self.confusion.diagonal()
-        summary[cols.index('Precisn'), :] = self.precision = 100 * self.correct / (
-                    self.total_preds + epsilon)
-        summary[cols.index('Recall'), :] = self.recall = 100 * self.correct / (
-                self.total_gold + epsilon)
-        summary[cols.index('F1'), :] = self.f1 = (2 * self.precision * self.recall /
-                                                  (self.precision + self.recall + epsilon))
+        self.correct = self.confusion.diagonal()
+        self.precision = 100 * self.correct / (self.total_preds + epsilon)
+        self.recall = 100 * self.correct / (self.total_gold + epsilon)
+        self.f1 = (2 * self.precision * self.recall / (self.precision + self.recall + epsilon))
+        cols = ['Refs', 'Preds', 'Correct', 'Precisn', 'Recall', 'F1']
+        summary = np.zeros((len(cols), self.n_classes), dtype=np.float32)
+        summary[cols.index('Refs'), :] = self.total_gold
+        summary[cols.index('Preds'), :] = self.total_preds
+        summary[cols.index('Correct'), :] = self.correct
+        summary[cols.index('Precisn'), :] = self.precision
+        summary[cols.index('Recall'), :] = self.recall
+        summary[cols.index('F1'), :] = self.f1
+
         self.summary = summary
         self.col_head = cols
-
         self.macro_f1 = np.mean(self.f1)
+        self.macro_precision = np.mean(self.precision)
+        self.macro_recall = np.mean(self.recall)
         self.micro_f1 = np.sum(self.f1 * self.total_gold) / np.sum(self.total_gold)
         self.accuracy = 100 * self.confusion.diagonal().sum() / np.sum(self.total_gold)
 

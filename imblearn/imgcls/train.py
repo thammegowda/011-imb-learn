@@ -26,8 +26,10 @@ eval_transform = T.Compose([T.Resize(256), T.CenterCrop(224),
 
 class Trainer(BaseTrainer):
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(self, work_dir, *args, **kwargs):
+        self.work_dir = work_dir
+
+        super().__init__(*args, work_dir=work_dir, **kwargs)
         self.sanity_check_conf(self.conf)
 
         # these magic numbers are required for imagenet pretrained models
@@ -43,7 +45,6 @@ class Trainer(BaseTrainer):
         self.n_classes = self.conf['model']['args'].get('n_classes')
         assert len(self.classes) == self.n_classes, \
             f'Dataset has {len(self.classes)}, but in conf has model.n_classes={self.n_classes}'
-
         self.cls_freqs = self.get_train_freqs()
 
     def get_train_freqs(self):
@@ -191,7 +192,7 @@ class Trainer(BaseTrainer):
         for xs, ys in tqdm(val_loader, desc=f'Ep:{self.epoch} Step:{self.step}'):
             xs, ys = xs.to(self.device), ys.to(self.device)
             output = self.model(xs)
-            loss = self.criterion(output, ys)
+            loss = self.loss_function(output, ys)
             losses.append(loss.item())
             accs.append(accuracy(output.data, ys).item())
             _, top_idx = output.detach().max(dim=1)
@@ -235,7 +236,7 @@ class Trainer(BaseTrainer):
                 for xs, ys in pbar:
                     xs, ys = xs.to(self.device), ys.to(self.device)
                     output = self.model(xs)
-                    loss = self.criterion(output, ys)
+                    loss = self.loss_function(output, ys)
 
                     train_losses.append(loss.item())
                     train_accs.append(accuracy(output.data, ys).item())

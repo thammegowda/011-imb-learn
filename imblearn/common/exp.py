@@ -88,9 +88,9 @@ class BaseTrainer(BaseExperiment):
         log_file = logs_dir / 'trainer.log'
         super().__init__(work_dir=work_dir, device=device, log_file=log_file)
 
-        self.criterion = self._get_loss()
         self.optimizer = self._get_optimizer()
         self.scheduler = self._get_schedule()
+        self._loss_func = None
 
         self._state = dict(step=0, epoch=0, best_step=0,
                            train_metric=dict(loss=[]),
@@ -119,3 +119,9 @@ class BaseTrainer(BaseExperiment):
         tbd_dir = self.work_dir / 'tensorboard'
         tbd_dir.mkdir(exist_ok=True, parents=True)
         self.tbd = SummaryWriter(log_dir=str(tbd_dir))
+
+    @property
+    def loss_function(self):
+        if not self._loss_func:
+            self._loss_func = self._get_loss()
+        return self._loss_func

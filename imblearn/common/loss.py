@@ -32,6 +32,5 @@ class CrossEntropy(CrossEntropyLoss):
                 weight = torch.tensor(weight_by, dtype=torch.float)
             else:
                 raise Exception(f'criterion.args.weight={weight_by} unknown; known={known}')
-            log.info(f'class weights = {dict(zip(exp.classes, weight.tolist()))}')
-        print(weight, '<<')
+            log.info(f'class weights = {dict(zip(exp.classes, weight))}')
         super().__init__(*args, weight=weight, **kwargs)
