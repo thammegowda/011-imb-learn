@@ -16,3 +16,5 @@ include::imgcls.adoc[]
 include::mlm.adoc[]
 
 include::nmt.adoc[]
+
+include::conf.adoc[]

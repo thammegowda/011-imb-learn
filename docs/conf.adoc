@@ -1,4 +1,4 @@
-= `conf.yml`
+= Configuration file: `conf.yml`
 
 Here is the basic schema of `conf.yml`
 [source,YAML]
@@ -191,10 +191,35 @@ loss:
         gamma: 2
 ----
 
-== Label Smoothing
+=== Label Smoothing
 
 > Based on https://arxiv.org/abs/1512.00567
 
 
+[source,yaml]
+----
+loss:
+    name: smooth_cross_entropy
+    args: # <1>
+        #weight_by: inverse_frequency
+        #eff_frequency: true
+        #eff_beta: 0.99
+        smooth_epsilon: 0.05
+----
+<1> Label smoothing works on top of `cross_entropy`, so all the args of cross_entropy such as `weight_by` are valid here.
 
 
+=== Balanced label smoothing
+
+WARNING: this is experimental
+
+[source,yaml]
+----
+loss:
+    name: smooth_cross_entropy
+    args:
+        #weight_by: inverse_frequency
+        smooth_epsilon: 0.05
+        smooth_weight_by: inverse_frequency
+
+----

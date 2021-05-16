@@ -26,9 +26,11 @@ _loss_:
         eff_frequency: true
         eff_beta: 0.99
 loss:
-    name: focal_loss
+    name: smooth_cross_entropy
     args:
-        gamma: 5
+        smooth_epsilon: 0.05
+        weight_by: inverse_frequency
+        #smooth_weight_by: inverse_frequency
 
 train:
     data: data/imgcls/msl/train
