@@ -6,6 +6,7 @@
 from typing import List, Union
 from torch import Tensor
 import numpy as np
+
 Array = Union[List[int], Tensor, np.ndarray]
 
 
@@ -33,23 +34,22 @@ class ClsMetric:
         self.precision = 100 * self.correct / (self.total_preds + epsilon)
         self.recall = 100 * self.correct / (self.total_gold + epsilon)
         self.f1 = (2 * self.precision * self.recall / (self.precision + self.recall + epsilon))
-        cols = ['Refs', 'Preds', 'Correct', 'Precisn', 'Recall', 'F1']
-        summary = np.zeros((len(cols), self.n_classes), dtype=np.float32)
-        summary[cols.index('Refs'), :] = self.total_gold
-        summary[cols.index('Preds'), :] = self.total_preds
-        summary[cols.index('Correct'), :] = self.correct
-        summary[cols.index('Precisn'), :] = self.precision
-        summary[cols.index('Recall'), :] = self.recall
-        summary[cols.index('F1'), :] = self.f1
+        self.col_head = ['Refs', 'Preds', 'Correct', 'Precisn', 'Recall', 'F1']
+        rows = [
+            self.total_gold,  # refs
+            self.total_preds,  # preds
+            self.correct,  # correct
+            self.precision,  # precision
+            self.recall,  # recall
+            self.f1  # f1
+        ]
+        self.summary = np.array(rows, dtype=np.float32)
 
-        self.summary = summary
-        self.col_head = cols
         self.macro_f1 = np.mean(self.f1)
         self.macro_precision = np.mean(self.precision)
         self.macro_recall = np.mean(self.recall)
         self.micro_f1 = np.sum(self.f1 * self.total_gold) / np.sum(self.total_gold)
         self.accuracy = 100 * self.confusion.diagonal().sum() / np.sum(self.total_gold)
-
 
     @classmethod
     def confusion_matrix(cls, n_classes, prediction, truth):
@@ -59,7 +59,7 @@ class ClsMetric:
             matrix[gold][pred] += 1
         return matrix
 
-    def format(self, confusion=True, col_width=10, delim = '\t'):
+    def format(self, confusion=True, col_width=10, delim='\t'):
         assert col_width >= 8
         builder = []
         builder.append(["MacroF1", f"{self.macro_f1:.2f} %"])
@@ -74,7 +74,7 @@ class ClsMetric:
             builder.append(row)
 
         if confusion:
-            builder.append([]) # blank line
+            builder.append([])  # blank line
             cls_names = [cn for cn in self.clsmap]
             builder.append(["vTr Pr>"] + [c for c in cls_names] + ["[TotGold]"])
             for cls_idx, (cls_name, row) in enumerate(zip(cls_names, self.confusion)):

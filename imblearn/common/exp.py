@@ -90,7 +90,7 @@ class BaseTrainer(BaseExperiment):
 
         self.optimizer = self._get_optimizer()
         self.scheduler = self._get_schedule()
-        self._loss_func = None
+        self._loss_func = None  # requires lazy initialization
 
         self._state = dict(step=0, epoch=0, best_step=0,
                            train_metric=dict(loss=[]),
