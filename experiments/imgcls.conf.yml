@@ -15,12 +15,21 @@ schedule:
     args:
         peak_lr: 0.0005
         warmup: 100
-loss:
+_loss_:
     name: cross_entropy
     args:
         weight_by: inverse_frequency
-        #weight: inverse_log
-        #weight: information_content
+        #weight_by: inverse_log
+        #weight_by: information_content
+
+        # to use effective number of samples
+        eff_frequency: true
+        eff_beta: 0.99
+loss:
+    name: focal_loss
+    args:
+        gamma: 5
+
 train:
     data: data/imgcls/msl/train
     batch_size: 2

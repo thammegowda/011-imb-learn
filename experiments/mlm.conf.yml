@@ -18,9 +18,7 @@ scheduler:
 criterion:
     name: cross_entropy
     args:
-        weight: inverse_frequency
-        #weight: inverse_log
-        #weight: information_content
+        weight_by: inverse_frequency   #others: inverse_log, inverse_sqrt, information_content
 prep:
     vocab: bpe
     max_types: 8000

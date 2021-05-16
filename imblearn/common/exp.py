@@ -76,7 +76,7 @@ class BaseExperiment:
     def _get_schedule(self) -> LRSchedule:
         return self._get_component(SCHEDULE)
 
-    def _get_loss(self):
+    def _get_loss_func(self):
         return self._get_component(LOSS, override=dict(exp=self))
 
 
@@ -123,5 +123,5 @@ class BaseTrainer(BaseExperiment):
     @property
     def loss_function(self):
         if not self._loss_func:
-            self._loss_func = self._get_loss()
+            self._loss_func = self._get_loss_func()
         return self._loss_func

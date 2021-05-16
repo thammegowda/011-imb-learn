@@ -10,9 +10,9 @@ Improving classification performance on imbalanced class distributions.
 . Masked Language Modeling
 . Machine Translation
 
-See link:docs/[] dir for the documentation
 
+include::imgcls.adoc[]
 
+include::mlm.adoc[]
 
-
-
+include::nmt.adoc[]
