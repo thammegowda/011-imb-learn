@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
 
-
 #SBATCH --partition=isi
 #SBATCH --mem=12G
 #SBATCH --time=0-23:58:00
@@ -11,17 +10,12 @@
 #SBATCH --error=R-%x.err.%j
 #SBATCH --export=NONE
 
-# Pipeline script for MT
 #
 # Author = Thamme Gowda (tg@isi.edu)
-# Date = April 3, 2019
-# Last revised: April 20, 2021
+# Last revised: May 18, 2021
 
-#SCRIPTS_DIR=$(dirname "${BASH_SOURCE[0]}")  # get the directory name
-#RTG_PATH=$(realpath "${SCRIPTS_DIR}/..")
-
-# If using compute grid, and dont rely on this relative path resolution, set the RTG_PATH here
-#RTG_PATH=/full/path/to/rtg-master
+# If using compute grid, and dont rely on this relative path resolution, set the SRC_PATH here
+#SRC_PATH=/full/path/to/011-img-learn
 SRC_PATH=../
 
 
@@ -55,10 +49,9 @@ done
 
 [[ -n $OUT ]] || usage   # show usage and exit
 
-
 echo "Output dir = $OUT"
 [[ -d $OUT ]] || mkdir -p $OUT
-OUT=`realpath $OUT`
+OUT=$(realpath $OUT)
 
 if [[ -n ${CONDA_ENV} ]]; then
     echo "Activating environment $CONDA_ENV"
@@ -67,11 +60,11 @@ if [[ -n ${CONDA_ENV} ]]; then
 fi
 
 if [[  ! -f $OUT/src.zip || -n $UPDATE ]]; then
-    [[ -f $SRC_PATH/imgcls/__init__.py ]] || { echo "Error: SRC_PATH=$SRC_PATH is not valid"; exit 2; }
+    [[ -f $SRC_PATH/imblearn/__init__.py ]] || { echo "Error: SRC_PATH=$SRC_PATH is not valid"; exit 2; }
     echo "Zipping source code to $OUT/src.zip"
     OLD_DIR=$PWD
     cd ${SRC_PATH}
-    zip -r $OUT/src.zip imgcls -x "*__pycache__*"
+    zip -r $OUT/src.zip imblearn -x "*__pycache__*"
     [[ -f $OUT/githead ]] && cat $OUT/githead >> $OUT/githeads
     git rev-parse HEAD > $OUT/githead   # git commit message
     cd $OLD_DIR
@@ -80,12 +73,13 @@ fi
 
 export PYTHONPATH=$OUT/src.zip
 #export PYTHONPATH=$SRC_PATH
+
 # copy this script for reproducibility
 cp "${BASH_SOURCE[0]}"  $OUT/job.sh.bak
 echo  "`date`: Starting pipeline... $OUT"
 
 
-cmd="python -m imgcls.train $OUT"
+cmd="python -m imblearn.imgcls.train $OUT"
 echo "command::: $cmd"
 if eval ${cmd}; then
     echo "`date` :: Done"

@@ -58,7 +58,7 @@ class BaseExperiment:
         :return: instance of component
         """
         name = name or self.conf[kind]['name']
-        args = args or self.conf[kind].get('args', {})
+        args = args or self.conf[kind].get('args') or {}
         if override:
             args = copy(args)
             args.update(override)
