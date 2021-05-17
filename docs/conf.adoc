@@ -1,0 +1,225 @@
+= Configuration file: `conf.yml`
+
+Here is the basic schema of `conf.yml`
+[source,YAML]
+----
+model:
+    name: <name>
+    args:
+        key1: <value>
+        key2: <value>
+optimizer:
+    name: <name>
+    args:
+        key1: <value>
+schedule:
+    name: <name>
+    args:
+        key1: <value>
+loss:
+    name: <name>
+    args:
+        key1: <value>
+train:
+    data: <path/data/train>
+    batch_size: 2    # number of images
+    max_step: 300    # maximum number of steps
+    max_epoch: 100   # maximum number of epochs
+    checkpoint: 100  # validate and checkpoint every these many steps
+
+validation:
+    data: <path/data/val>
+    batch_size: 10
+    patience: 10
+    by: macro_f1
+
+tests:
+    #test: <path/data/test1>       # dont use tests until the end
+    val: <path/data/val>
+----
+
+== Models
+
+=== Image Classifier
+
+[source,YAML]
+----
+model:
+    name: image_classifier
+    args:
+        n_classes: 19
+        intermediate: 40
+        dropout: 0.2
+        parent: resnext50_32x4d    # torchvision.models.<this>
+----
+
+=== Masked Language Model
+
+NOTE: Work in progress
+
+== Optimizers
+
+The following optimizers are supported
+
+* `adam`=torch.optim.Adam
+* `sgd`=torch.optim.SGD
+* `adagrad`=torch.optim.Adagrad
+* `adam_w`=torch.optim.AdamW
+* `adadelta`=torch.optim.Adadelta
+* `sparse_adam`=torch.optim.SparseAdam
+
+.Example for `adam`
+[source,yaml]
+----
+optimizer:
+    name: adam
+    args:
+        lr: 0.0005
+        betas: [0.9, 0.999]
+----
+
+
+== Schedule
+Schedule is an optional component. Comment or delete the `schedule:` block in conf.yml to disable it.
+
+The following learning schedules are supported:
+
+=== `inverse_sqrt`: Inverse Square Root
+
+[source,yaml]
+----
+schedule:
+    name: inverse_sqrt
+    args:
+        peak_lr: 0.0005
+        warmup: 100
+----
+
+=== `noam`: Noam
+
+> Based on https://arxiv.org/abs/1706.03762
+
+[source, yaml]
+----
+schedule:
+    name: noam
+    args:
+        scaler: 2
+        model_dim: 100
+        warmup: 2000
+----
+
+== Loss
+
+=== Cross Entropy
+
+[source,yaml]
+----
+loss:
+    name: cross_entropy
+    args:
+        weight_by: inverse_frequency
+        #weight_by: inverse_log
+        #weight_by: information_content
+
+        # to use effective number of samples
+        eff_frequency: true
+        eff_beta: 0.99
+----
+
+=== Weighted Cross Entropy
+
+.Manual weights for classes
+`loss.args.weight` can be set to a list. The list should have one weight per each class and match the order in <experiment-dir/classes.csv>.
+
+.Using heuristics
+Heuristics based on frequencies in training corpus can be used to obtain weights.
+Let \$c\$ be a class with \$f_c\$ be class frequency in training corpus, and \$w_c\$ be weight to be inferred  using heuristics.
+
+Heuristic is to be set to `loss.args.weight_by` in conf.yml.
+The valid values to `loss.args.weight_by` are:
+
+. `inverse_frequency` +
+  \$w_c \propto 1/f_c \$
+
+. `inverse_log` +
+\$w_c \propto 1/\log(f_c) \$
+
+. `inverse_sqrt` +
+\$w_c \propto 1/\sqrt(f_c) \$
+
+. `information_content` +
+Uses link:https://en.wikipedia.org/wiki/Information_content[information content] +
+Let \$\pi_c = \frac{f_c}{\sum_i f_i} \$ be probability in training corpus (i.e. prior) +
+\$w_c = -\log_2(\pi_c)\$
+
+.Effective number of samples
+
+> Based on https://arxiv.org/abs/1901.05555
+
+Instead of using raw frequencies from training corpus, we can also use effective frequencies (i.e. number of samples).
+
+Example:
+[source, yaml]
+----
+loss:
+    name: cross_entropy
+    args:
+        weight_by: inverse_frequency # <1>
+        # to use effective number of samples
+        eff_frequency: true        # <2>
+        eff_beta: 0.99            # <3>
+----
+<1> Other supported heuristics can also be used
+<2>  to enable it
+<3> \$\beta \in [0, 1)\$ is required when `eff_frequency=true`.
+
+Effective number of samples is a kind of smoothing function for frequencies.
+If \$\beta=0 \implies \$ all classes attain same frequency of 1 as effective frequency(thus results in unweighted cross entropy); and if \$\beta \rightarrow 1\$ effective frequencies approaches raw frequencies (thus, no smoothing is in effect).
+
+=== Focal Loss
+
+> Based on https://arxiv.org/abs/1708.02002
+
+Implements loss = \$\sum_c y_c (1-p_c)^\gamma \log(p_c)\$ where \$y_c\$ is ground thruth class, \$p_c\$ is model output probability, and \$\gamma\$ is a hyper parameter.
+
+[source,yaml]
+----
+loss:
+    name: focal_loss
+    args:
+        gamma: 2
+----
+
+=== Label Smoothing
+
+> Based on https://arxiv.org/abs/1512.00567
+
+
+[source,yaml]
+----
+loss:
+    name: smooth_cross_entropy
+    args: # <1>
+        #weight_by: inverse_frequency
+        #eff_frequency: true
+        #eff_beta: 0.99
+        smooth_epsilon: 0.05
+----
+<1> Label smoothing works on top of `cross_entropy`, so all the args of cross_entropy such as `weight_by` are valid here.
+
+
+=== Balanced label smoothing
+
+WARNING: this is experimental
+
+[source,yaml]
+----
+loss:
+    name: smooth_cross_entropy
+    args:
+        #weight_by: inverse_frequency
+        smooth_epsilon: 0.05
+        smooth_weight_by: inverse_frequency
+
+----

@@ -11,8 +11,11 @@ from torch.utils.data import Dataset, DataLoader
 from torchvision.datasets.folder import default_loader, ImageFolder
 import sys
 
-from .train import BaseExperiment, device, log
-from .metric import ClsMetric
+from imblearn import device, log, ClsMetric
+
+from imblearn.common.exp import BaseExperiment
+from imblearn.imgcls.train import normalize, eval_transform
+
 
 
 class Images(Dataset):
@@ -31,22 +34,21 @@ class Images(Dataset):
         return img, item
 
 
-class Evaluator(BaseExperiment):
+class Evaluator:
 
     def __init__(self, work_dir: Path):
-        super(Evaluator, self).__init__(work_dir=work_dir, device=device)
-        assert self.best_checkpt.exists()
-        assert self.classes
-        self.model = self._get_model().to(device).eval()
-        chkpt = torch.load(self.best_checkpt, map_location=device)
-        log.info(f'Restoring model state from checkpoint {self.best_checkpt}; step={chkpt["step"]}')
+        self.exp = exp = BaseExperiment(work_dir=work_dir, device=device)
+        self.device = device
+        assert exp.best_checkpt.exists()
+        assert exp.classes
+        self.model = exp._get_model().to(device).eval()
+        chkpt = torch.load(exp.best_checkpt, map_location=device)
+        log.info(f'Restoring model state from checkpoint {exp.best_checkpt}; step={chkpt["step"]}')
         self.model.load_state_dict(chkpt['model_state'])
         self.checkpt_step = chkpt["step"]
 
-
-
     def predict_files(self, paths: List[str], num_threads=0, batch_size=10):
-        images = Images(paths=paths, transform=self.eval_transform)
+        images = Images(paths=paths, transform=eval_transform)
         loader = DataLoader(images, batch_size=batch_size, shuffle=False,
                                 num_workers=num_threads, pin_memory=True)
         for batch, idxs in tqdm(loader):
@@ -55,10 +57,10 @@ class Evaluator(BaseExperiment):
             probs = torch.softmax(output, dim=1)
             top_prob, top_idx = probs.detach().max(dim=1)
             for i in range(len(batch)):
-                yield (paths[idxs[i]], self.classes[top_idx[i]], top_prob[i])
+                yield (paths[idxs[i]], self.exp.classes[top_idx[i]], top_prob[i])
 
     def predict_dir(self, test_dir: str, num_threads=0, batch_size=10) -> ClsMetric:
-        images = ImageFolder(test_dir, transform=self.eval_transform)
+        images = ImageFolder(test_dir, transform=eval_transform)
         loader = DataLoader(images, batch_size=batch_size, shuffle=False,
                             num_workers=num_threads, pin_memory=True)
         preds = []
@@ -70,12 +72,13 @@ class Evaluator(BaseExperiment):
             top_prob, top_idx = probs.detach().max(dim=1)
             preds.append(top_idx)
             truth.append(target)
-        return ClsMetric(prediction=torch.cat(preds), truth=torch.cat(truth), clsmap=self.classes)
+        return ClsMetric(prediction=torch.cat(preds), truth=torch.cat(truth),
+                         clsmap=self.exp.classes)
 
 def main(**args):
     args = args or vars(parse_args())
     evaluator = Evaluator(args['exp_dir'])
-    conf = evaluator.conf
+    conf = evaluator.exp.conf
     img_paths = []
     skips = 0
     batch_size = args.get('batch_size', conf['validation'].get('batch_size',

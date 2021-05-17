@@ -1,10 +1,8 @@
-
-
 import torch
 import torchvision
 from torch import Tensor, nn
 
-from . import log, device
+from imblearn import register, MODEL, log, device
 
 
 class PreTrainedModels:
@@ -16,21 +14,23 @@ class PreTrainedModels:
     # lazy loading
     __cache = {}
 
+    # remove the last layer
     last_layer = dict(
-        resnext50_32x4d = 'fc',
-        resnet18 = 'fc',
-        wide_resnet50_2 = 'fc',
-        inception_v3 = 'fc',
+        resnext50_32x4d='fc',
+        resnet18='fc',
+        wide_resnet50_2='fc',
+        inception_v3='fc',
         googlenet='fc',
         shufflenet_v2_x1_0='fc',
         mobilenet_v2='fc',
         mobilenet_v3_large='fc',
-        densenet161 = 'classifier',
-        alexnet = 'classifier[-1]',
-        vgg16 = 'classifier[-1]',
-        mobilenet_v3_small = 'classifier[-1]',
-        mnasnet1_0 = 'classifier[-1]',
+        densenet161='classifier',
+        alexnet='classifier[-1]',
+        vgg16='classifier[-1]',
+        mobilenet_v3_small='classifier[-1]',
+        mnasnet1_0='classifier[-1]',
     )
+
     @classmethod
     def get_model(cls, name, pretrained=True, remove_last_layer=True):
         assert name in cls.last_layer, f'{name} unknown. Options are : {cls.last_layer.keys()}'
@@ -63,12 +63,14 @@ class PreTrainedModels:
         return cls.__cache[name]
 
 
+@register(MODEL)
 class ImageClassifier(nn.Module):
 
     def __init__(self, n_classes, parent, dropout=0.3, intermediate=None):
         super().__init__()
         intermediate = intermediate or 2 * n_classes
-        _, last_layer = PreTrainedModels.get_model(name=parent, pretrained=False, remove_last_layer=True)
+        _, last_layer = PreTrainedModels.get_model(name=parent, pretrained=False,
+                                                   remove_last_layer=True)
         pre_classes = last_layer.in_features
         log.info(f"Removed last layer from {parent}; input dimension = {pre_classes}")
         self.classifier = nn.Sequential(
@@ -86,4 +88,3 @@ class ImageClassifier(nn.Module):
         with torch.no_grad():
             feats = PreTrainedModels.cache(self.parent)(xs)
         return self.fc(feats)
-

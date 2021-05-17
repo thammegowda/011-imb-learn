@@ -1,0 +1,15 @@
+== Image classification
+=== Datasets
+Run `link:[data/imgcls/get-data.sh]` to download datasets.
+
+  cd data/imgcls && ./get-data.sh
+
+This script download the following datasets:
+
+* Mars Orbital Image (HiRISE): https://zenodo.org/record/4002935
+* MSL Curiosity Rover: https://zenodo.org/record/4033453
+
+=== Model
+
+See `link:../imblearn/imgcls/[]` dir
+

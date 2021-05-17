@@ -1,0 +1,57 @@
+model:
+    name: image_classifier
+    args:
+        n_classes: 19
+        intermediate: 40
+        dropout: 0.2
+        parent: resnext50_32x4d    # torchvision.models.<this>
+optimizer:
+    name: adam
+    args:
+        lr: 0.0005
+        betas: [0.9, 0.999]
+schedule:
+    name: inverse_sqrt
+    args:
+        peak_lr: 0.0005
+        warmup: 100
+_loss_:
+    name: cross_entropy
+    args:
+        weight_by: inverse_frequency
+        #weight_by: inverse_log
+        #weight_by: information_content
+
+        # to use effective number of samples
+        eff_frequency: true
+        eff_beta: 0.99
+loss:
+    name: smooth_cross_entropy
+    args:
+        smooth_epsilon: 0.05
+        weight_by: inverse_frequency
+        #smooth_weight_by: inverse_frequency
+
+train:
+    data: data/imgcls/msl/train
+    batch_size: 2
+    #max_step: 10_000
+    max_step: 300
+    max_epoch: 100
+    # checkpoint: 1_000
+    checkpoint: 100
+
+validation:
+    data: data/imgcls/msl/val
+    batch_size: 10
+    patience: 10
+    by: macro_f1
+
+tests:
+    #test: data/msl/test       # dont use tests
+    val: data/imgcls/msl/val
+
+
+
+
+
