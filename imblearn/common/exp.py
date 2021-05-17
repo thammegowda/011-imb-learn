@@ -62,7 +62,7 @@ class BaseExperiment:
         if override:
             args = copy(args)
             args.update(override)
-        assert name in registry[kind], f'kind={name} unknown; Known={list(registry[LOSS].keys())}'
+        assert name in registry[kind], f'kind={name} unknown; Known={list(registry[kind].keys())}'
         log.info(f"Initialising {kind}={name}   args={dict(args)}")
         return registry[kind][name](**args)
 
