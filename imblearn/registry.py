@@ -49,17 +49,11 @@ def register(kind, name=None):
     """
     assert kind in registry
 
-    def _wrap_func(func):
-        name2 = name or snake_case(func.__name__)
-        registry[kind][name2] = func
+    def _wrap_cls(cls):
+        registry[kind][name or snake_case(cls.__name__)] = cls
+        return cls
 
-        @functools.wraps(func)
-        def _wrap_args(*args, **kwargs):
-            return func(*args, **kwargs)
-
-        return _wrap_args
-
-    return _wrap_func
+    return _wrap_cls
 
 
 def register_all():

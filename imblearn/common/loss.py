@@ -78,8 +78,7 @@ class WeightedLoss(_WeightedLoss, Loss):
         return weight
 
 
-#@register(LOSS)
-# due to a bug,
+@register(LOSS)
 class CrossEntropy(WeightedLoss):
 
     def __init__(self, *args, ignore_index=-100, **kwargs):
@@ -93,9 +92,6 @@ class CrossEntropy(WeightedLoss):
     def forward(self, input: Tensor, target: Tensor) -> Tensor:
         return F.cross_entropy(input, target, weight=self.weight,
                                ignore_index=self.ignore_index, reduction=self.reduction)
-
-# TODO: make this work with @registry(LOSS)
-registry[LOSS]['cross_entropy'] = CrossEntropy
 
 
 @register(LOSS)
