@@ -119,12 +119,6 @@ loss:
     name: cross_entropy
     args:
         weight_by: inverse_frequency
-        #weight_by: inverse_log
-        #weight_by: information_content
-
-        # to use effective number of samples
-        eff_frequency: true
-        eff_beta: 0.99
 ----
 
 === Weighted Cross Entropy
@@ -221,5 +215,4 @@ loss:
         #weight_by: inverse_frequency
         smooth_epsilon: 0.05
         smooth_weight_by: inverse_frequency
-
 ----
