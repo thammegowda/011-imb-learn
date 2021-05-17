@@ -30,8 +30,7 @@ export OMP_NUM_THREADS=$N_CPUS
 export MKL_NUM_THREADS=$N_CPUS
 
 OUT=
-CONF_PATH=
-
+UPDATE=
 #defaults
 #CONDA_ENV=rtg     # empty means don't activate environment
 CONDA_ENV=rtg
@@ -44,10 +43,11 @@ usage() {
 }
 
 
-while getopts ":fd:c:e:p:" o; do
+while getopts ":d:e:u" o; do
     case "${o}" in
         d) OUT=${OPTARG} ;;
         e) CONDA_ENV=${OPTARG} ;;
+	u) UPDATE=YES ;;
         *) usage ;;
     esac
 done
@@ -66,12 +66,13 @@ if [[ -n ${CONDA_ENV} ]]; then
     pip freeze > $OUT/requirements.txt
 fi
 
-if [[ ! -f $OUT/src.zip ]]; then
+if [[  ! -f $OUT/src.zip || -n $UPDATE ]]; then
     [[ -f $SRC_PATH/imgcls/__init__.py ]] || { echo "Error: SRC_PATH=$SRC_PATH is not valid"; exit 2; }
     echo "Zipping source code to $OUT/src.zip"
     OLD_DIR=$PWD
     cd ${SRC_PATH}
     zip -r $OUT/src.zip imgcls -x "*__pycache__*"
+    [[ -f $OUT/githead ]] && cat $OUT/githead >> $OUT/githeads
     git rev-parse HEAD > $OUT/githead   # git commit message
     cd $OLD_DIR
 fi

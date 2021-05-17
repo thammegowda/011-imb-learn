@@ -161,6 +161,7 @@ class Trainer(BaseExperiment):
             else:
                 raise Exception(f'criterion.args.weight={weight_by} unknown; known={known}')
             log.info(f'class weights = {dict(zip(self.classes, weight.tolist()))}')
+            weight = weight.to(device)
         if name == 'cross_entropy':
             criterion = nn.CrossEntropyLoss(reduction='mean', weight=weight)
         else:

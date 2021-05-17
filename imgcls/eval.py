@@ -84,7 +84,7 @@ def main(**args):
         log.info(f"Reading images and their labels from {args['test_dir']}")
         with torch.no_grad():
             result = evaluator.predict_dir(args['test_dir'], batch_size=batch_size)
-        args['out'].write(result.format(confusion=True))
+        args['out'].write(result.format(confusion=True, delim=','))
     else:
         log.info(f"Reading image paths from {args['inp']}")
         for path in args['inp']:
