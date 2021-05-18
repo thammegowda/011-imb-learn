@@ -5,7 +5,6 @@
 from pathlib import Path
 from typing import Optional
 import torch
-from tqdm import tqdm
 from torch.utils.tensorboard import SummaryWriter
 from copy import copy
 
@@ -78,7 +77,6 @@ class BaseExperiment:
 
     def _get_loss_func(self):
         return self._get_component(LOSS, override=dict(exp=self))
-
 
 
 class BaseTrainer(BaseExperiment):

@@ -10,19 +10,23 @@ from datetime import datetime
 import numpy as np
 import torch
 
+from torch import Tensor
 from torch.utils.data import DataLoader
 import torchvision
 from torchvision import transforms as T
+from torch.utils.data import Dataset
 from torchvision.datasets import ImageFolder
-from tqdm import tqdm
+from torchvision.transforms.functional import to_tensor
+from tqdm import tqdm, trange
 
-from imblearn import log, yaml, device, ClsMetric
+from imblearn import log, yaml, ClsMetric, device
 from imblearn.common.exp import BaseTrainer
 
-
 normalize = T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-eval_transform = T.Compose([T.Resize(256), T.CenterCrop(224),
-                                         T.ToTensor(), normalize])
+eval_transform = T.Compose([T.Resize(256), T.CenterCrop(224), T.ToTensor(), normalize])
+# cache is already transformed to tensor
+eval_transform_cached = T.Compose([T.Resize(256), T.CenterCrop(224), normalize])
+
 
 class Trainer(BaseTrainer):
 
@@ -33,12 +37,24 @@ class Trainer(BaseTrainer):
         self.sanity_check_conf(self.conf)
 
         # these magic numbers are required for imagenet pretrained models
-        self.train_transform = T.Compose([T.RandomResizedCrop(224),
-                                          T.RandomHorizontalFlip(),
-                                          T.ToTensor(), normalize])
 
-        self.train_data = ImageFolder(self.conf['train']['data'], transform=self.train_transform)
-        self.val_data = ImageFolder(self.conf['validation']['data'], transform=eval_transform)
+        train_data, val_data = self.conf['train']['data'], self.conf['validation']['data']
+        keep_in_mem = self.conf['train'].get('keep_in_mem', True)  # default=keep in memory
+
+        augmentations = [T.RandomResizedCrop(224), T.RandomHorizontalFlip()]
+
+
+        if keep_in_mem:
+            mem_device = torch.device(keep_in_mem) if isinstance(keep_in_mem, str) else None
+            train_transform = T.Compose(augmentations + [normalize])
+            self.train_data = CachedImageFolder(root=train_data, transform=train_transform,
+                                                device=mem_device)
+            self.val_data = CachedImageFolder(root=val_data, transform=eval_transform_cached,
+                                              device=mem_device)
+        else:
+            train_transform = T.Compose(augmentations + [T.ToTensor(), normalize])
+            self.train_data = ImageFolder(train_data, transform=train_transform)
+            self.val_data = ImageFolder(val_data, transform=eval_transform)
         self.classes = self.train_data.classes
         assert self.classes == self.val_data.classes, 'Training and val classes mismatch'
 
@@ -57,7 +73,7 @@ class Trainer(BaseTrainer):
             class_stats.write_text("\n".join(lines))
         # third column has frequency
         return [int(line.strip().split(',')[2])
-                          for line in class_stats.read_text().splitlines()]
+                for line in class_stats.read_text().splitlines()]
 
     def get_class_frequencies(self, img_folder: Path) -> List[int]:
         freqs = [-1] * self.n_classes
@@ -90,7 +106,8 @@ class Trainer(BaseTrainer):
             for name, path in conf['tests'].items():
                 assert Path(path).exists(), f'test dir {name}={path} does not exist. PWD={pwd}'
 
-    def _checkpt_name(self, step, train_loss, val_loss):
+    @staticmethod
+    def _checkpt_name(step, train_loss, val_loss):
         return f'model_{step:06d}_{train_loss:.5f}_{val_loss:.5f}.pkl'
 
     def _checkpoint(self, train_metrics, val_loader) -> bool:
@@ -209,7 +226,7 @@ class Trainer(BaseTrainer):
         return rate
 
     def train(self, max_step=10 ** 6, max_epoch=10 ** 3, batch_size=1,
-              num_threads=0, checkpoint=1000):
+              num_threads=0, checkpoint=1000, keep_in_mem=False):
 
         train_loader = DataLoader(self.train_data, batch_size=batch_size, shuffle=True,
                                   num_workers=num_threads, pin_memory=True)
@@ -269,6 +286,61 @@ class Trainer(BaseTrainer):
                 self.epoch += 1
 
 
+class CachedImageFolder(Dataset):
+    """
+    This dataset caches dataset in memory
+    """
+
+    def __init__(self, root: str, transform=None, device=None):
+
+        self.root = root
+        self.transform = transform
+        self.device =  device
+        cache = self.get_cache()
+        for name, val in cache.items():
+            setattr(self, name, val)
+        if device:
+            self.items = self.items.to(device)
+            self.labels = self.labels.to(device)
+
+        assert len(self.items) == len(self.labels)
+        super().__init__()
+
+    def get_cache(self) -> Dict:
+        cache_file = Path(self.root) / '_cache.pkl'
+        if cache_file.exists():
+            log.info(f"Cache file found {cache_file}")
+            cache = torch.load(cache_file, map_location=self.device)
+        else:
+            log.info(f"Creating a cache of  {self.root}")
+            data = ImageFolder(self.root)
+            n = len(data)
+            imgs, labels = None, torch.zeros(n, dtype=torch.int)
+            for idx in trange(n):
+                img, label = data[idx]
+                img: Tensor = to_tensor(img)
+                if idx == 0:
+                    imgs = torch.zeros(size=(n, *img.shape), dtype=torch.half)  # float16
+                imgs[idx] = img
+                labels[idx] = label
+            self.device = device
+            cache = dict(items=imgs, labels=labels, classes=data.classes,
+                         classes_to_idx=data.class_to_idx)
+            log.info(f"Writing to {cache_file}")
+            torch.save(cache, cache_file)
+        return cache
+
+    def __getitem__(self, item):
+        img, label = self.items[item], self.labels[item]
+        if self.transform:
+            # some transformations dont work at float16
+            img = self.transform(img.type(torch.float))
+        return img, label
+
+    def __len__(self):
+        return len(self.labels)
+
+
 def accuracy(output, target):
     """Computes accuracy"""
     batch_size = target.size(0)
@@ -287,7 +359,7 @@ def parse_args():
 def main(**args):
     args = args or vars(parse_args())
     exp_dir: Path = args['exp_dir']
-    trainer = Trainer(exp_dir)
+    trainer = Trainer(exp_dir, device=device)
     train_args: Dict = copy(trainer.conf['train'])
     train_args.pop('data', None)
     trainer.train(**train_args)

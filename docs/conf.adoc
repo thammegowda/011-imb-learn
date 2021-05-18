@@ -26,6 +26,7 @@ train:
     max_step: 300    # maximum number of steps
     max_epoch: 100   # maximum number of epochs
     checkpoint: 100  # validate and checkpoint every these many steps
+    keep_in_mem: true  # keep datasets in memory
 
 validation:
     data: <path/data/val>
@@ -216,3 +217,31 @@ loss:
         smooth_epsilon: 0.05
         smooth_weight_by: inverse_frequency
 ----
+
+== Trainer
+
+[source,yaml]
+----
+train:
+    data: <path/data/train>   #<1>
+    batch_size: 20           # number of images
+    max_step: 200_000        # maximum number of steps <2>
+    max_epoch: 100           # maximum number of epochs <2>
+    checkpoint: 1000         # validate and checkpoint every these many steps
+    keep_in_mem: true        # keep datasets in memory <3>
+----
+<1> The directory specified by path should be compatible with `torchvision.datasets.ImageFolder`
+<2> `max_step` or `max_epoch`  whichever comes earlier
+<3> Deault is `true` and uses CPU memory. To use GPU memory set `keep_in_mem: cuda`. To disable: set it to `false` or `null`.
+
+== Validation
+
+[source,yaml]
+----
+validation:
+    data: <path/data/val>  # <1>
+    batch_size: 10         # this can be larger than train.batch_size
+    patience: 10           # patience for early stop
+    by: macro_f1           # metric to use for early stop
+----
+<1> The directory specified by path should be compatible with `torchvision.datasets.ImageFolder`
