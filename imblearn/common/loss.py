@@ -11,7 +11,7 @@ from torch import Tensor
 from torch import nn
 from torch.nn import functional as F
 from torch.nn.modules.loss import CrossEntropyLoss, _Loss, _WeightedLoss
-from imblearn import log, register, LOSS, registry
+from imblearn import log, register, LOSS, registry, device
 import abc
 
 DEF_EFF_BETA = 0.999  # effective number of samples
@@ -32,13 +32,16 @@ class WeightedLoss(_WeightedLoss, Loss):
         self.exp = exp
         self.eff_frequency = eff_frequency
         self.eff_beta = eff_beta
+
         if weight_by:
             assert weight is None, f'weight_by and weight are mutually exclusive'
             if isinstance(weight, str):
                 raise Exception(f'weight={weight} is invalid; do you mean weight_by={weight}?')
             weight = self.get_weight(weight_by)
 
-        assert weight is None or isinstance(weight, Tensor)
+        if weight is not None:
+            assert isinstance(weight, Tensor)
+            weight = weight.to(device)
         super(WeightedLoss, self).__init__(weight=weight, reduction=reduction)
         self.weight_by = weight_by
         if weight is not None:
