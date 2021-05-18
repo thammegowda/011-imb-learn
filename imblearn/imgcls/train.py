@@ -207,7 +207,7 @@ class Trainer(BaseTrainer):
         predictions = []
         truth = []
         for xs, ys in tqdm(val_loader, desc=f'Ep:{self.epoch} Step:{self.step}'):
-            xs, ys = xs.to(self.device), ys.to(self.device)
+            xs, ys = xs.to(self.device), ys.to(self.device).type(torch.long)
             output = self.model(xs)
             loss = self.loss_function(output, ys)
             losses.append(loss.item())
@@ -251,7 +251,7 @@ class Trainer(BaseTrainer):
             with tqdm(train_loader, initial=self.step, total=max_step, unit='batch',
                       dynamic_ncols=True, desc=f'Ep:{self.epoch}') as pbar:
                 for xs, ys in pbar:
-                    xs, ys = xs.to(self.device), ys.to(self.device)
+                    xs, ys = xs.to(self.device), ys.to(self.device).type(torch.long)
                     output = self.model(xs)
                     loss = self.loss_function(output, ys)
 
@@ -331,10 +331,10 @@ class CachedImageFolder(Dataset):
         return cache
 
     def __getitem__(self, item):
-        img, label = self.items[item], self.labels[item]
+        img, label = self.items[item].type(torch.float), self.labels[item]
+        # some transformations dont work at float16
         if self.transform:
-            # some transformations dont work at float16
-            img = self.transform(img.type(torch.float))
+            img = self.transform(img)
         return img, label
 
     def __len__(self):

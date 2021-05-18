@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 #SBATCH --partition=isi
-#SBATCH --mem=12G
+#SBATCH --mem=40G
 #SBATCH --time=0-23:58:00
 #SBATCH --nodes=1 --ntasks=1
 #SBATCH --cpus-per-task=8
