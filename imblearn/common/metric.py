@@ -69,8 +69,12 @@ class ClsMetric:
         row = ["[Class]"] + [col for col in self.col_head]
         builder.append(row)
 
+        def number_format(n, decimals=2):
+            fstr = '%d' if float(n).is_integer() else f'%.{decimals}f'
+            return fstr % n
+
         for cls_idx, cls_name in enumerate(self.clsmap):
-            row = [cls_name] + [f'{cell:.4g}' for cell in self.summary[:, cls_idx]]
+            row = [cls_name] + [number_format(cell) for cell in self.summary[:, cls_idx]]
             builder.append(row)
 
         if confusion:
