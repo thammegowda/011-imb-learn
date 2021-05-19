@@ -142,7 +142,7 @@ class SmoothCrossEntropy(CrossEntropy):
             # take out epsilon and distribute evenly to all but one
             fill_value = epsilon / (C - 1)
             # expand [N] -> [N, C]
-            full = torch.full((N, C), fill_value=fill_value, dtype=torch.float)
+            full = torch.full((N, C), fill_value=fill_value, dtype=torch.float, device=labels.device)
             full.scatter_(1, labels.type(torch.int64), 1 - epsilon)
         else:
             assert len(weight) == C
