@@ -53,7 +53,7 @@ function get_hirise {
   src=hirise-map-proj-v3_2
 
   [[ -f $src/_VALID ]] || {
-    [[ -s $src.zip ]] || wget https://zenodo.org/record/4002935/files/src.zip?download=1 -O $src.zip
+    [[ -s $src.zip ]] || wget https://zenodo.org/record/4002935/files/$src.zip?download=1 -O $src.zip
     unzip -q $src.zip && touch $src/_VALID
     [[ -d __MACOSX ]] && rm -r __MACOSX
   }
