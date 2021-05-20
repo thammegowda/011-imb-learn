@@ -1,6 +1,6 @@
 = Imbalanced Learning
 :toc:
-
+:doctype: book
 '''
 
 Improving classification performance on imbalanced class distributions.
@@ -10,6 +10,17 @@ Improving classification performance on imbalanced class distributions.
 . Masked Language Modeling
 . Machine Translation
 
+
+== Setup
+
+Using conda environment:
+
+[source,bash]
+----
+conda create -n imblearn python=3.9
+conda activate imblearn
+pip install -r requirements.txt
+----
 
 include::imgcls.adoc[]
 

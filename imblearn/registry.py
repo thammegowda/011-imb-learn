@@ -5,7 +5,6 @@
 
 from torch import optim
 from torch.nn import CrossEntropyLoss
-import functools
 import re
 
 MODEL = 'model'
@@ -62,7 +61,8 @@ def register_all():
     modules = [
         'imblearn.common.schedule',
         'imblearn.common.loss',
-        'imblearn.imgcls.model'
+        'imblearn.imgcls.model',
+        'imblearn.mlm.model'
     ]
     for name in modules:
         import_module(name)
