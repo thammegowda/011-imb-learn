@@ -7,9 +7,11 @@ from torch import nn
 from imblearn import register, MODEL, log
 from transformers import RobertaForMaskedLM, RobertaConfig
 
-@register(MODEL)
+
 class BalBert(RobertaForMaskedLM):
 
-    def __init__(self, **kwargs):
+    @staticmethod
+    @register(kind=MODEL, name='bal_bert')
+    def new_roberta(*args, **kwargs):
         config = RobertaConfig(**kwargs)
-        super().__init__(config=config)
+        return BalBert(*args, config=config)

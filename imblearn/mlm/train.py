@@ -15,6 +15,7 @@ from datasets import load_dataset
 from tokenizers.implementations import ByteLevelBPETokenizer
 from tokenizers.processors import BertProcessing
 from transformers import RobertaTokenizerFast
+from transformers import TrainerCallback, TrainerState, TrainerControl, TrainingArguments
 from transformers import LineByLineTextDataset
 from transformers import DataCollatorForLanguageModeling
 from transformers import Trainer as HFTrainer, TrainingArguments as HFTrainerArgs
@@ -100,10 +101,33 @@ class MLMTrainer(BaseTrainer):
             save_total_limit=2,
             prediction_loss_only=True,
         )
+        log.info(f"Loading training data {self._train_file}; size: {self._train_file.stat().st_size:,} bytes")
         train_data = torch.load(self._train_file)
+        log.info(f"Loading val data {self._val_file}; size: {self._val_file.stat().st_size:,} bytes")
+        val_data = torch.load(self._val_file)
         _trainer = HFTrainer(model=self.model, args=args, data_collator=data_collator,
-                             train_dataset=train_data)
-        _trainer.train()  #resume_from_checkpoint=True
+                             train_dataset=train_data, eval_dataset=val_data,
+                             compute_metrics=[])
+
+        #_trainer.add_callback(MyCallback())
+        checkpoints = list(self.models_dir.glob('checkpoint-*'))
+        if checkpoints:
+            checkpoints = sorted(checkpoints, key=lambda p: int(p.name.split('-')[-1]))
+            resume_from_checkpoint = checkpoints[-1]
+            log.info(f"Trying to resume from {resume_from_checkpoint}...")
+        else:
+            log.info(f"No checkpoint found. this is a fresh start.")
+            resume_from_checkpoint = None
+        _trainer.train(resume_from_checkpoint=resume_from_checkpoint)
+        #_trainer.train(resume_from_checkpoint=None)
+
+class MyCallback(TrainerCallback):
+
+    def on_evaluate(self, args: TrainingArguments, state: TrainerState, control: TrainerControl, **kwargs):
+        log.info(f"on_evaluate: {kwargs}")
+
+    def on_save(self, args: TrainingArguments, state: TrainerState, control: TrainerControl, **kwargs):
+        log.info(f"on_save ")
 
 
 class TextDataset(Dataset):
@@ -147,3 +171,4 @@ def main(**args):
 
 if __name__ == '__main__':
     main()
+
