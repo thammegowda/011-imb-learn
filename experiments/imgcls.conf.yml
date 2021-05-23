@@ -5,6 +5,7 @@ model:
         intermediate: 40
         dropout: 0.2
         parent: resnext50_32x4d    # torchvision.models.<this>
+        pretrained: true
 optimizer:
     name: adam
     args:
@@ -39,6 +40,7 @@ train:
     max_step: 300
     max_epoch: 100
     # checkpoint: 1_000
+    train_parent_after: 100
     checkpoint: 100
 
 validation:

@@ -66,11 +66,11 @@ class PreTrainedModels:
 @register(MODEL)
 class ImageClassifier(nn.Module):
 
-    def __init__(self, n_classes, parent, dropout=0.3, intermediate=None):
+    def __init__(self, n_classes, parent, dropout=0.3, intermediate=None, pretrained=True):
         super().__init__()
         intermediate = intermediate or 2 * n_classes
-        _, last_layer = PreTrainedModels.get_model(name=parent, pretrained=False,
-                                                   remove_last_layer=True)
+        self.parent_model, last_layer = PreTrainedModels.get_model(
+            name=parent, pretrained=pretrained, remove_last_layer=True)
         pre_classes = last_layer.in_features
         log.info(f"Removed last layer from {parent}; input dimension = {pre_classes}")
         self.classifier = nn.Sequential(
@@ -80,11 +80,18 @@ class ImageClassifier(nn.Module):
             nn.ReLU(),
             nn.Linear(intermediate, n_classes)
         )
-
         self.fc = nn.Linear(pre_classes, n_classes)
-        self.parent = parent
+        #self.parent = parent
 
-    def forward(self, xs: Tensor):
-        with torch.no_grad():
-            feats = PreTrainedModels.cache(self.parent)(xs)
+    def forward(self, xs: Tensor, train_parent=False):
+        # you may not want to train parent until some xyz number of steps
+        if train_parent:
+            if not self.training:
+                self.parent_model.train()
+            feats = self.parent_model(xs)
+        else:
+            if self.training:
+                self.parent_model.eval()
+            with torch.no_grad():
+                feats = self.parent_model(xs)
         return self.fc(feats)
