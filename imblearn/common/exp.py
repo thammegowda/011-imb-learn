@@ -72,7 +72,7 @@ class BaseExperiment:
         params = params or self.model.parameters()
         return self._get_component(OPTIMIZER, override=dict(params=params))
 
-    def _get_schedule(self) -> LRSchedule:
+    def _get_scheduler(self) -> LRSchedule:
         return self._get_component(SCHEDULE)
 
     def _get_loss_func(self):
@@ -87,7 +87,7 @@ class BaseTrainer(BaseExperiment):
         super().__init__(work_dir=work_dir, device=device, log_file=log_file)
 
         self.optimizer = self._get_optimizer()
-        self.scheduler = self._get_schedule()
+        self.scheduler = self._get_scheduler() if SCHEDULE in self.conf else None
         self._loss_func = None  # requires lazy initialization
 
         self._state = dict(step=0, epoch=0, best_step=0,

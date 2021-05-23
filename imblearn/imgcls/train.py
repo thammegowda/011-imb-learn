@@ -62,7 +62,7 @@ class Trainer(BaseTrainer):
 
         self.n_classes = self.conf['model']['args'].get('n_classes')
         assert len(self.classes) == self.n_classes, \
-            f'Dataset has {len(self.classes)}, but in conf has model.n_classes={self.n_classes}'
+            f'Dataset has {len(self.classes)}, but conf has model.n_classes={self.n_classes}'
         self.cls_freqs = self.get_train_freqs()
 
     def get_train_freqs(self):
@@ -278,17 +278,20 @@ class Trainer(BaseTrainer):
 
                     train_losses.append(loss.item())
                     train_accs.append(accuracy(output.data, ys).item())
+                    p_msg = f'Loss={train_losses[-1]:g} Acc:{train_accs[-1]:.2f}%'
 
-                    # compute gradient and do SGD step
+                    # compute gradients
                     self.optimizer.zero_grad()
                     loss.backward()
-                    self.step += 1
-                    lr = self.learning_rate_adjust()
-                    self.optimizer.step()
 
-                    p_msg = f'Lr={lr:g} Loss={train_losses[-1]:g} Acc:{train_accs[-1]:.2f}%'
+                    self.step += 1
+                    if self.scheduler:
+                        lr = self.learning_rate_adjust()
+                        self.tbd.add_scalar('lr', lr, global_step=self.step - 1)
+                        p_msg = f'Lr={lr:g} ' + p_msg
+                    # take SGD step
+                    self.optimizer.step()
                     pbar.set_postfix_str(p_msg, refresh=False)
-                    self.tbd.add_scalar('lr', lr, global_step=self.step - 1)
 
                     if self.step % checkpoint == 0:
                         metrics = dict(loss=np.mean(train_losses), accuracy=np.mean(train_accs))
