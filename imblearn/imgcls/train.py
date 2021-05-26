@@ -43,8 +43,13 @@ class Trainer(BaseTrainer):
         train_data, val_data = self.conf['train']['data'], self.conf['validation']['data']
         keep_in_mem = self.conf['train'].get('keep_in_mem', True)  # default=keep in memory
 
-        augmentations = [T.RandomResizedCrop(224), T.RandomHorizontalFlip()]
-
+        augmentations = [
+            T.RandomRotation(degrees=(90, 270)),
+            T.RandomResizedCrop(224),
+            T.RandomHorizontalFlip(),
+            T.RandomVerticalFlip(),
+            T.RandomAutocontrast()
+        ]
 
         if keep_in_mem:
             mem_device = torch.device(keep_in_mem) if isinstance(keep_in_mem, str) else None
@@ -324,7 +329,7 @@ class CachedImageFolder(Dataset):
 
         self.root = root
         self.transform = transform
-        self.device =  device
+        self.device = device
         cache = self.get_cache()
         for name, val in cache.items():
             setattr(self, name, val)
