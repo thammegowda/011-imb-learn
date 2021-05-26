@@ -52,6 +52,7 @@ model:
         intermediate: 40
         dropout: 0.2
         parent: resnext50_32x4d    # torchvision.models.<this>
+        pretrained: true           # initialize pretrained parent model
 ----
 
 === Masked Language Model
@@ -220,19 +221,21 @@ loss:
 
 == Trainer
 
+This example is for image classifier model and it is subject to change.
 [source,yaml]
 ----
 train:
     data: <path/data/train>   #<1>
     batch_size: 20           # number of images
     max_step: 200_000        # maximum number of steps <2>
+    min_step: 10_000         # minimum number of steps.. ignore early stop til then
     max_epoch: 100           # maximum number of epochs <2>
     checkpoint: 1000         # validate and checkpoint every these many steps
     keep_in_mem: true        # keep datasets in memory <3>
 ----
 <1> The directory specified by path should be compatible with `torchvision.datasets.ImageFolder`
 <2> `max_step` or `max_epoch`  whichever comes earlier
-<3> Deault is `true` and uses CPU memory. To use GPU memory set `keep_in_mem: cuda`. To disable: set it to `false` or `null`.
+<3> Default is `true` and uses CPU memory. To use GPU memory set `keep_in_mem: cuda`. To disable: set it to `false` or `null`.
 
 == Validation
 

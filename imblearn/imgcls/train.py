@@ -19,7 +19,7 @@ from torchvision.datasets import ImageFolder
 from torchvision.transforms.functional import to_tensor
 from tqdm import tqdm, trange
 
-from imblearn import log, yaml, ClsMetric, device
+from imblearn import log, yaml, ClsMetric, device, registry, LOSS
 from imblearn.common.exp import BaseTrainer
 
 normalize = T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
@@ -35,9 +35,11 @@ class Trainer(BaseTrainer):
 
         super().__init__(*args, work_dir=work_dir, **kwargs)
         self.sanity_check_conf(self.conf)
+        # we don't want to use fancy loss function here
+        # by fancy, i mean, functions with label smoothing, weighted etc ...
+        self.val_loss_func = registry[LOSS]['cross_entropy'](exp=self)  # this is vanilla CE no args
 
         # these magic numbers are required for imagenet pretrained models
-
         train_data, val_data = self.conf['train']['data'], self.conf['validation']['data']
         keep_in_mem = self.conf['train'].get('keep_in_mem', True)  # default=keep in memory
 
@@ -60,7 +62,7 @@ class Trainer(BaseTrainer):
 
         self.n_classes = self.conf['model']['args'].get('n_classes')
         assert len(self.classes) == self.n_classes, \
-            f'Dataset has {len(self.classes)}, but in conf has model.n_classes={self.n_classes}'
+            f'Dataset has {len(self.classes)}, but conf has model.n_classes={self.n_classes}'
         self.cls_freqs = self.get_train_freqs()
 
     def get_train_freqs(self):
@@ -209,7 +211,7 @@ class Trainer(BaseTrainer):
         for xs, ys in tqdm(val_loader, desc=f'Ep:{self.epoch} Step:{self.step}'):
             xs, ys = xs.to(self.device), ys.to(self.device).type(torch.long)
             output = self.model(xs)
-            loss = self.loss_function(output, ys)
+            loss = self.val_loss_func(output, ys)
             losses.append(loss.item())
             accs.append(accuracy(output.data, ys).item())
             _, top_idx = output.detach().max(dim=1)
@@ -226,7 +228,19 @@ class Trainer(BaseTrainer):
         return rate
 
     def train(self, max_step=10 ** 6, max_epoch=10 ** 3, batch_size=1,
-              num_threads=0, checkpoint=1000, keep_in_mem=False):
+              num_threads=0, checkpoint=1000, keep_in_mem=False,
+              train_parent_after=float('inf'), min_step=0):
+        """
+        :param max_step: maximum steps to train
+        :param max_epoch: maximum epochs to train
+        :param batch_size: batch size
+        :param num_threads: num threads for data loader
+        :param checkpoint: checkpoint and validate after every these steps
+        :param keep_in_mem: keep datasets in memory
+        :param train_parent_after: start training parent model after these many steps
+        :param min_step: minimum steps to train
+        :return:
+        """
 
         train_loader = DataLoader(self.train_data, batch_size=batch_size, shuffle=True,
                                   num_workers=num_threads, pin_memory=True)
@@ -234,6 +248,8 @@ class Trainer(BaseTrainer):
         val_loader = DataLoader(self.val_data, batch_size=val_batch_size, shuffle=False,
                                 num_workers=num_threads, pin_memory=True)
 
+        assert min_step >= 0
+        assert min_step < max_step
         if self.step > 0:
             log.info(f'resuming from step {self.step}; max_steps:{max_step}')
         if self.step >= max_step or self._trained_flag.exists():
@@ -243,8 +259,10 @@ class Trainer(BaseTrainer):
             elif self._trained_flag.exists():
                 log.warning(f"Training was previously converged. Tip: rm {self._trained_flag}")
             return
+
         force_stop = False  # early stop when val metric goes up
-        while not force_stop and self.step <= max_step and self.epoch <= max_epoch:
+        while self.step < min_step or \
+                not force_stop and self.step <= max_step and self.epoch <= max_epoch:
             train_losses = []
             train_accs = []
             log.info(f"Epoch={self.epoch}")
@@ -252,20 +270,27 @@ class Trainer(BaseTrainer):
                       dynamic_ncols=True, desc=f'Ep:{self.epoch}') as pbar:
                 for xs, ys in pbar:
                     xs, ys = xs.to(self.device), ys.to(self.device).type(torch.long)
-                    output = self.model(xs)
+                    if self.step == train_parent_after + 1:
+                        log.info("====== parent model will be trained here after =====")
+                    train_parent = self.step > train_parent_after
+                    output = self.model(xs, train_parent=train_parent)
                     loss = self.loss_function(output, ys)
 
                     train_losses.append(loss.item())
                     train_accs.append(accuracy(output.data, ys).item())
+                    p_msg = f'Loss={train_losses[-1]:g} Acc:{train_accs[-1]:.2f}%'
 
-                    # compute gradient and do SGD step
+                    # compute gradients
                     self.optimizer.zero_grad()
                     loss.backward()
-                    self.step += 1
-                    lr = self.learning_rate_adjust()
-                    self.optimizer.step()
 
-                    p_msg = f'Lr={lr:g} Loss={train_losses[-1]:g} Acc:{train_accs[-1]:.2f}%'
+                    self.step += 1
+                    if self.scheduler:
+                        lr = self.learning_rate_adjust()
+                        self.tbd.add_scalar('lr', lr, global_step=self.step - 1)
+                        p_msg = f'Lr={lr:g} ' + p_msg
+                    # take SGD step
+                    self.optimizer.step()
                     pbar.set_postfix_str(p_msg, refresh=False)
 
                     if self.step % checkpoint == 0:
@@ -274,9 +299,13 @@ class Trainer(BaseTrainer):
                         train_losses.clear()
                         train_accs.clear()
                         if force_stop:
-                            log.info("Force early stopping the training")
-                            self._trained_flag.touch()
-                            break
+                            if self.step < min_step:
+                                log.warning("Early stop has reached,"
+                                            f" but min_step={min_step} is keeping me going...")
+                            else:
+                                log.info("Force early stopping the training")
+                                self._trained_flag.touch()
+                                break
 
                     if self.step > max_step:
                         log.info("Max steps reached;")
