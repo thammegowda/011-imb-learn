@@ -1,9 +1,16 @@
 == Image classification
 === Datasets
-Run `link:[data/imgcls/get-data.sh]` to download datasets.
 
-  cd data/imgcls && ./get-data.sh
+Ruh either of the below commands to download and prepare datasets:
+- Run `link:[data/imgcls/get-data.sh]` -- This includes data augmentations provided by dataset creators.
+- Run `link:[data/imgcls/get-data-uniq.sh]`-- This excludes augmentations provided by dataset creators. Maybe useful if you have dynamic augmentations (we do as part of pytorch data loader)
 
+[source,bash]
+----
+cd data/imgcls
+./get-data.sh        # output dirs: hirise and msl
+./get-data-uniq.sh   # output dirs: hirise-uniq and msl-uniq
+----
 This script download the following datasets:
 
 * Mars Orbital Image (HiRISE): https://zenodo.org/record/4002935
