@@ -6,6 +6,7 @@
 from typing import List, Union
 import math
 from dataclasses import dataclass
+from pathlib import Path
 import torch
 from torch import Tensor
 from torch import nn
@@ -44,12 +45,15 @@ class WeightedLoss(_WeightedLoss, Loss):
             weight = weight.to(device)
         super(WeightedLoss, self).__init__(weight=weight, reduction=reduction)
         self.weight_by = weight_by
+
         if weight is not None:
-            top = 20
-            msg = ', '.join(f'{c}: {w:g}' for c, w in zip(exp.classes[:top], weight[:top]))
-            if len(self.exp.classes) > top:
-                msg += '...[truncated]'
-            log.info(f'class weights = {msg}')
+            msg = '\n'.join(f'{c}\t{f}\t{w:g}' for c, f, w in zip(exp.classes, exp.cls_freqs, weight))
+            log.info(f'class weights =\n {msg}')
+            wt_file: Path = self.exp.work_dir / 'class-weights.tsv'
+            if not wt_file.exists():
+                log.info(f"Creating {wt_file}")
+                wt_file.write_text(msg)
+
 
     def get_weight(self, weight_by):
         freqs: Tensor = torch.tensor(self.exp.cls_freqs, dtype=torch.float, requires_grad=False)
