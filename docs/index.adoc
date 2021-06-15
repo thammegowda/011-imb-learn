@@ -1,4 +1,5 @@
 = Imbalanced Learning
+:doctype: book
 :toc:
 
 '''

@@ -189,6 +189,8 @@ loss:
 
 === Label Smoothing
 
+Extends `cross_entropy`
+
 > Based on https://arxiv.org/abs/1512.00567
 
 
@@ -207,6 +209,8 @@ loss:
 
 === Balanced label smoothing
 
+Extends `cross_entropy`
+
 WARNING: this is experimental
 
 [source,yaml]
@@ -219,9 +223,24 @@ loss:
         smooth_weight_by: inverse_frequency
 ----
 
+== Macro Cross Entropy
+Extends `smooth_cross_entropy`
+
++ This does not accept `weight_by`, instead does macro average, which is an unweighted average across classes.
++ Since this extends `smooth_cross_entropy`, label smoothing params (`smooth_epsilon`) and also `smooth_weight_by` are supported (optional).
+
+[source,yaml]
+----
+loss:
+    name: macro_cross_entropy
+    args:
+        smooth_epsilon: 0.1
+        smooth_weight_by: inverse_frequency
+----
+
 == Trainer
 
-This example is for image classifier model and it is subject to change.
+This example is for image classifier model, and it is subject to change.
 [source,yaml]
 ----
 train:
