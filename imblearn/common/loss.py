@@ -157,6 +157,53 @@ class SmoothCrossEntropy(CrossEntropy):
 
 
 @register(LOSS)
+class MacroCrossEntropy(SmoothCrossEntropy):
+
+    def __init__(self, exp=None, smooth_epsilon=0.0, weight_by=None, *args, **kwargs):
+        assert weight_by is None, 'weight_by is not supported for MacroCrossEntropy'
+        super().__init__(exp=exp, *args, smooth_epsilon=smooth_epsilon, **kwargs)
+        assert 0.0 <= smooth_epsilon < 1
+        self.is_smoothing = smooth_epsilon > 0.
+        log.info(f"Smoothing enabled? {self.is_smoothing} ; smooth_epsilon={smooth_epsilon}")
+        assert self.weight is None
+
+    def input_type(self) -> str:
+        return 'logits'
+
+    @staticmethod
+    def one_hot(indices, n_classes):
+        assert len(indices.shape) == 1
+        N = indices.shape[0]
+        C = n_classes
+        # expand target [N] -> [N, C]  i.e., one hot vector
+        return torch.zeros(N, C, dtype=torch.float).scatter(1, indices.view(N, 1), 1.0)
+
+    def forward(self, input: Tensor, target: Tensor) -> Tensor:
+        N, C = input.shape
+        log_probs = input.log_softmax(dim=1)
+        if self.is_smoothing:
+            target = self.smooth_labels(target, C=C, epsilon=self.smooth_epsilon,
+                                        weight=self.smooth_weight)
+        else:
+            # expand target [N] -> [N, C]  i.e., one hot vector
+            target = self.one_hot(indices=target, n_classes=C).to(input.device)
+
+        assert input.shape == target.shape
+
+        # [N, C] :  y_c * log(p_c)
+        losses = torch.mul(target, log_probs)
+        # sum along dim 0 :  top-down each column
+        col_sum = losses.sum(dim=0)   # [N, C] -> [C]
+        col_norm = target.sum(dim=0)  # [N, C] -> [C]
+        assert len(col_sum.shape) == 1 and col_sum.shape[0] == C
+        assert col_sum.shape == col_norm.shape
+
+        epsilon = 1e-9  # to avoid divide by zero
+        losses = col_sum / (col_norm + epsilon)
+        return -losses.sum()   # sum along the column
+
+
+@register(LOSS)
 class FocalLoss(nn.Module):
     """
     Implements Lin etal https://arxiv.org/abs/1708.02002
@@ -191,5 +238,4 @@ class FocalLoss(nn.Module):
             return losses.mean()
         else:
             raise Exception('duh, this should not be happening...')
-
 
