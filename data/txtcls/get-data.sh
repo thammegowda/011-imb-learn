@@ -16,23 +16,34 @@ done
 
 function get_trec {
     dest="$1"
-    [[ -e $dest/_VALID ]] && return
+    [[ -e $dest/_GOOD ]] && return
     [[ -d $dest ]] || mkdir -p $dest
+
     TRAIN="https://cogcomp.seas.upenn.edu/Data/QA/QC/train_5500.label"
     TEST="https://cogcomp.seas.upenn.edu/Data/QA/QC/TREC_10.label"
-    train=$dest/train_5500.orig
+    trec_5500=$dest/TREC_5500.orig
     test=$dest/TREC_10.orig
-    [[ -s $train ]] || wget "$TRAIN" -O "$train"
+    [[ -s $trec_5500 ]] || wget "$TRAIN" -O "$trec_5500"
     [[ -s $test ]] || wget "$TEST" -O "$test"
-    printf "$dest/train $train\n$dest/test $test\n" |
+
+    # create validation set (10% of original training set)
+    train=$dest/train.orig
+    valid=$dest/valid.orig
+    shuf < $trec_5500 > $trec_5500.shuf
+    #n=$(wc -l < $trec_5500.shuf)
+    awk "NR <= 400" < $trec_5500.shuf > $valid
+    awk "NR > 400" < $trec_5500.shuf > $train
+
+    echo "$dest/train $train
+         $dest/valid $valid
+         $dest/test $test" |
         while read pref file; do
             cat $file | cut -f1 -d' ' | cut -f1 -d: > $pref.coarse
             cat $file | cut -f1 -d' ' | cut -f2 -d: > $pref.fine
             cat $file | sed 's/^[^ ]* //' > $pref.text
         done
     echo "TREC datset is ready at $dest"
-    touch $dest/_VALID
-   
+    touch $dest/_GOOD
 }
 
 get_trec $DIR/trec
