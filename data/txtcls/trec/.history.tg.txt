@@ -1,0 +1,8 @@
+ll
+wc -l *.*
+ head *.*
+ head *.* | less
+ls -alh 
+cat train.coarse | sort | uniq -c 
+wc -l *
+cd ..
