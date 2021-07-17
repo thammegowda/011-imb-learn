@@ -142,16 +142,18 @@ class SmoothCrossEntropy(CrossEntropy):
 
         N = len(labels)
         labels = labels.view(N, 1)
+        device = labels.device
         if weight is None:
             # take out epsilon and distribute evenly to all but one
             fill_value = epsilon / (C - 1)
             # expand [N] -> [N, C]
-            full = torch.full((N, C), fill_value=fill_value, dtype=torch.float, device=labels.device)
+            full = torch.full((N, C), fill_value=fill_value, dtype=torch.float, device=device)
             full.scatter_(1, labels.type(torch.int64), 1 - epsilon)
         else:
             assert len(weight) == C
+            weight = weight.to(device)
             full = (weight * epsilon).expand(N, C)            # [C] -> [N, C]
-            peaks = torch.tensor(1 - epsilon).expand(N, 1)  # [N, 1]
+            peaks = torch.tensor(1 - epsilon, device=device).expand(N, 1)  # [N, 1]
             full = full.scatter_add(1, labels, peaks)             # inplace add
         return full
 
@@ -176,7 +178,7 @@ class MacroCrossEntropy(SmoothCrossEntropy):
         N = indices.shape[0]
         C = n_classes
         # expand target [N] -> [N, C]  i.e., one hot vector
-        return torch.zeros(N, C, dtype=torch.float).scatter(1, indices.view(N, 1), 1.0)
+        return torch.zeros(N, C, dtype=torch.float, device=indices.device).scatter(1, indices.view(N, 1), 1.0)
 
     def forward(self, input: Tensor, target: Tensor) -> Tensor:
         N, C = input.shape
