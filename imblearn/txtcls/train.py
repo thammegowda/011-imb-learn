@@ -77,6 +77,7 @@ class NLPExperiment(BaseExperiment):
         data = read_parallel_recs(src_path=src_path, tgt_path=tgt_path,
                                   src_prep=None, tgt_prep=None)
         srcs, tgts = zip(*data)  # separate iterable of tuples into two collections
+        srcs, tgts = list(srcs), list(tgts)
         # note: srcs and tgts are are  tuples
         assert 'shared' in args or ('src' in args and 'tgt' in args), \
             'requires either prep.shared or both prep.src and prep.tgt vocabulary settings'
