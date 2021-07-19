@@ -122,4 +122,5 @@ class BaseTrainer(BaseExperiment):
     def loss_function(self):
         if not self._loss_func:
             self._loss_func = self._get_loss_func()
+            log.info("Loss function initialized...")
         return self._loss_func
