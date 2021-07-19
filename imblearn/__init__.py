@@ -3,6 +3,7 @@
 # Author: Thamme Gowda [tg (at) isi (dot) edu] 
 # Created: 5/7/21
 __version__ = '0.2'
+__description__ = 'Machine Learning Toolkit that focus on imbalanced learning'
 
 from .common.metric import ClsMetric
 from .common.log import Logger
