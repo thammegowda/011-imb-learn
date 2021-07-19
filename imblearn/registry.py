@@ -62,7 +62,8 @@ def register_all():
     modules = [
         'imblearn.common.schedule',
         'imblearn.common.loss',
-        'imblearn.imgcls.model'
+        'imblearn.imgcls.model',
+        'imblearn.txtcls.model'
     ]
     for name in modules:
         import_module(name)

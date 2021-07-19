@@ -1,0 +1,80 @@
+model:
+    name: transformer_seq_classifier
+    args__:   # transformer base
+        vocab_size: 8000
+        n_classes: 6
+        model_dim: 512
+        n_heads: 8
+        ff_dim: 2048
+        n_layers: 6
+        dropout: 0.1
+    args:  # simple args for testing
+        vocab_size: 8000
+        n_classes: 6
+        model_dim: 100
+        n_heads: 2
+        ff_dim: 200
+        n_layers: 2
+        dropout: 0.1
+optimizer:
+    name: adam
+    args:
+        lr: 0.0005
+        betas: [0.9, 0.999]
+schedule:
+    name: inverse_sqrt
+    args:
+        peak_lr: 0.0005
+        warmup: 100
+_loss_:
+    name: cross_entropy
+    args:
+        weight_by: inverse_frequency
+        #weight_by: inverse_log
+        #weight_by: information_content
+
+        # to use effective number of samples
+        eff_frequency: true
+        eff_beta: 0.99
+loss:
+    name: smooth_cross_entropy
+    args:
+        smooth_epsilon: 0.05
+        weight_by: inverse_frequency
+        #smooth_weight_by: inverse_frequency
+prep:
+    src:
+        level: bpe
+        vocab_size: 8000
+        char_coverage: 0.99995
+        min_co_ev: 50
+    tgt:
+        level: class     # classification only
+        vocab_size: -1   # as many as you see in data
+
+train:
+    src_path: data/txtcls/trec/train.text
+    tgt_path: data/txtcls/trec/train.coarse  # .coarse is a label file
+    batch_size: 24
+    max_step: 300
+    max_epoch: 100
+    checkpoint: 100
+
+validation:
+    src_path: data/txtcls/trec/valid.text
+    tgt_path: data/txtcls/trec/valid.coarse
+    batch_size: 10
+    patience: 10
+    by: macro_f1
+
+tests:
+    valid:
+        - data/txtcls/trec/valid.text
+        - data/txtcls/trec/valid.coarse
+    #test:
+    #   src_path:
+    #   tgt_path:
+
+
+
+
