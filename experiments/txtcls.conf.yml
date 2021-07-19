@@ -55,10 +55,10 @@ prep:
 train:
     src_path: data/txtcls/trec/train.text
     tgt_path: data/txtcls/trec/train.coarse  # .coarse is a label file
-    batch_size: 24
-    max_step: 300
+    batch_size: 12
+    max_step: 3000
     max_epoch: 100
-    checkpoint: 100
+    checkpoint: 300
 
 validation:
     src_path: data/txtcls/trec/valid.text

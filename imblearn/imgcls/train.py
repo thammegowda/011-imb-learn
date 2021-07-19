@@ -19,8 +19,9 @@ from torchvision.datasets import ImageFolder
 from torchvision.transforms.functional import to_tensor
 from tqdm import tqdm, trange
 
-from imblearn import log, yaml, ClsMetric, device, registry, LOSS
+from imblearn import log, yaml, registry, LOSS
 from imblearn.common.exp import BaseTrainer
+from imblearn.common.metric import ClsMetric, accuracy
 
 normalize = T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
 eval_transform = T.Compose([T.Resize(256), T.CenterCrop(224), T.ToTensor(), normalize])
@@ -319,6 +320,23 @@ class Trainer(BaseTrainer):
             if not force_stop and self.step < max_step:
                 self.epoch += 1
 
+    def pipeline(self):
+        train_args: Dict = copy(self.conf['train'])
+        train_args.pop('data', None)
+        self.train(**train_args)
+
+        if self.conf.get('tests'):
+            log.info('Running tests')
+            from .eval import main as eval_main
+            for name, test_dir in self.conf['tests'].items():
+                step_num = self._state.get("best_step", self._state["step"])
+                out_file = self.work_dir / f'result.step{step_num}.{name}.txt'
+                if out_file.exists() and out_file.stat().st_size > 0:
+                    log.info(f"{out_file} exists; skipping {test_dir}")
+                    continue
+                with out_file.open('w') as out:
+                    eval_main(exp_dir=self.work_dir, test_dir=test_dir, out=out)
+
 
 class CachedImageFolder(Dataset):
     """
@@ -357,7 +375,6 @@ class CachedImageFolder(Dataset):
                     imgs = torch.zeros(size=(n, *img.shape), dtype=torch.half)  # float16
                 imgs[idx] = img
                 labels[idx] = label
-            self.device = device
             cache = dict(items=imgs, labels=labels, classes=data.classes,
                          classes_to_idx=data.class_to_idx)
             log.info(f"Writing to {cache_file}")
@@ -374,42 +391,3 @@ class CachedImageFolder(Dataset):
     def __len__(self):
         return len(self.labels)
 
-
-def accuracy(output, target):
-    """Computes accuracy"""
-    batch_size = target.size(0)
-    _, top_idx = output.max(dim=1)
-    correct = top_idx.eq(target).float().sum()
-    return 100.0 * correct / batch_size
-
-
-def parse_args():
-    import argparse
-    p = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    p.add_argument('exp_dir', type=Path, help='Experiment dir path (must have conf.yml in it).')
-    return p.parse_args()
-
-
-def main(**args):
-    args = args or vars(parse_args())
-    exp_dir: Path = args['exp_dir']
-    trainer = Trainer(exp_dir, device=device)
-    train_args: Dict = copy(trainer.conf['train'])
-    train_args.pop('data', None)
-    trainer.train(**train_args)
-
-    if trainer.conf.get('tests'):
-        log.info('Running tests')
-        from .eval import main as eval_main
-        for name, test_dir in trainer.conf['tests'].items():
-            step_num = trainer._state.get("best_step", trainer._state["step"])
-            out_file = exp_dir / f'result.step{step_num}.{name}.txt'
-            if out_file.exists() and out_file.stat().st_size > 0:
-                log.info(f"{out_file} exists; skipping {test_dir}")
-                continue
-            with out_file.open('w') as out:
-                eval_main(exp_dir=exp_dir, test_dir=test_dir, out=out)
-
-
-if __name__ == '__main__':
-    main()

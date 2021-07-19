@@ -3,7 +3,7 @@ import torchvision
 from torch import Tensor, nn
 
 from imblearn import register, MODEL, log, device
-
+from imblearn.common.model import BaseModel
 
 class PreTrainedModels:
     """
@@ -64,7 +64,7 @@ class PreTrainedModels:
 
 
 @register(MODEL)
-class ImageClassifier(nn.Module):
+class ImageClassifier(BaseModel):
 
     def __init__(self, n_classes, parent, dropout=0.3, intermediate=None, pretrained=True):
         super().__init__()
@@ -95,3 +95,8 @@ class ImageClassifier(nn.Module):
             with torch.no_grad():
                 feats = self.parent_model(xs)
         return self.fc(feats)
+
+    @classmethod
+    def Trainer(cls, *args, **kwargs):
+        from .train import Trainer
+        return Trainer(*args, **kwargs)

@@ -5,7 +5,6 @@
 
 from torch import optim
 from torch.nn import CrossEntropyLoss
-import functools
 import re
 
 MODEL = 'model'
@@ -51,6 +50,10 @@ def register(kind, name=None):
 
     def _wrap_cls(cls):
         registry[kind][name or snake_case(cls.__name__)] = cls
+        # checks
+        if kind == MODEL:
+            assert callable(getattr(cls, "Trainer", None)), \
+                f'Model {cls} must have a .Trainer() factory method'
         return cls
 
     return _wrap_cls

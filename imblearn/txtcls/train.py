@@ -17,9 +17,10 @@ from torch.utils.data import DataLoader
 from torch.utils.data import Dataset
 from tqdm import tqdm
 
-from imblearn import log, yaml, ClsMetric, device, registry, LOSS
+from imblearn import log, yaml, registry, LOSS
 from imblearn.common.exp import BaseTrainer, BaseExperiment
 from imblearn.common.util import read_parallel_recs, collate_batch
+from imblearn.common.metric import ClsMetric, accuracy
 
 
 class InMemDataset(Dataset):
@@ -291,7 +292,7 @@ class Trainer(BaseTrainer, NLPExperiment):
         return rate
 
     def train(self, max_step=10 ** 6, max_epoch=10 ** 3, batch_size=1,
-              num_threads=0, checkpoint=1000, min_step=0, **kwargs):
+              num_threads=0, checkpoint=1000, min_step=0):
         """
         :param max_step: maximum steps to train
         :param max_epoch: maximum epochs to train
@@ -303,10 +304,6 @@ class Trainer(BaseTrainer, NLPExperiment):
         :param min_step: minimum steps to train
         :return:
         """
-        for i in ['src_path', 'tgt_path']:
-            kwargs.pop(i)  # ignored
-        if kwargs:
-            raise Exception(f'Unknown args: {kwargs}')
         train_loader = DataLoader(self.get_train_data(), batch_size=batch_size, shuffle=True,
                                   num_workers=num_threads, pin_memory=True,
                                   collate_fn=collate_batch)
@@ -385,43 +382,23 @@ class Trainer(BaseTrainer, NLPExperiment):
             if not force_stop and self.step < max_step:
                 self.epoch += 1
 
+    def pipeline(self):
+        train_args: Dict = copy(self.conf['train'])
+        # ignore args
+        train_args.pop('src_path')
+        train_args.pop('tgt_path')
+        self.train(**train_args)
 
-def accuracy(output, target):
-    """Computes accuracy"""
-    batch_size = target.size(0)
-    _, top_idx = output.max(dim=1)
-    correct = top_idx.eq(target).float().sum()
-    return 100.0 * correct / batch_size
-
-
-def parse_args():
-    import argparse
-    p = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    p.add_argument('exp_dir', type=Path, help='Experiment dir path (must have conf.yml in it).')
-    return p.parse_args()
-
-
-def main(**args):
-    args = args or vars(parse_args())
-    exp_dir: Path = args['exp_dir']
-    trainer = Trainer(exp_dir, device=device)
-    train_args: Dict = copy(trainer.conf['train'])
-    train_args.pop('data', None)
-    trainer.train(**train_args)
-
-    if trainer.conf.get('tests'):
-        from .eval import main as eval_main
-        step_num = trainer._state.get("best_step", trainer._state["step"])
-        test_dir = exp_dir / f'tests_step{step_num}_best1'
-        test_dir.mkdir(exist_ok=True, parents=True)
-        for name, (src_path, lbl_path) in trainer.conf['tests'].items():
-            out_file = test_dir / f'{name}.preds.tsv'
-            score_file = test_dir / f'{name}.score.tsv'
-            if out_file.exists() and out_file.stat().st_size > 0:
-                log.info(f"{out_file} exists; skipping {test_dir}")
-                continue
-            eval_main(exp_dir=exp_dir, inp=src_path, out=out_file, labels=lbl_path,
-                      result=score_file)
-
-if __name__ == '__main__':
-    main()
+        if self.conf.get('tests'):
+            from .eval import main as eval_main
+            step_num = self._state.get("best_step", self._state["step"])
+            test_dir = self.work_dir / f'tests_step{step_num}_best1'
+            test_dir.mkdir(exist_ok=True, parents=True)
+            for name, (src_path, lbl_path) in self.conf['tests'].items():
+                out_file = test_dir / f'{name}.preds.tsv'
+                score_file = test_dir / f'{name}.score.tsv'
+                if out_file.exists() and out_file.stat().st_size > 0:
+                    log.info(f"{out_file} exists; skipping {test_dir}")
+                    continue
+                eval_main(exp_dir=self.work_dir, inp=src_path, out=out_file, labels=lbl_path,
+                          result=score_file)

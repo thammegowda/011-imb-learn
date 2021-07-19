@@ -9,6 +9,13 @@ import numpy as np
 
 Array = Union[List[int], Tensor, np.ndarray]
 
+def accuracy(output, target):
+    """Computes accuracy"""
+    batch_size = target.size(0)
+    _, top_idx = output.max(dim=1)
+    correct = top_idx.eq(target).float().sum()
+    return 100.0 * correct / batch_size
+
 
 class ClsMetric:
 

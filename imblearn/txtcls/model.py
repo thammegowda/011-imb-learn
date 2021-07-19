@@ -11,6 +11,8 @@ import torch.nn.functional as F
 from torch.nn import TransformerEncoder, TransformerEncoderLayer, MultiheadAttention
 from imblearn.registry import register, MODEL
 
+# NOTE: torch 1.9.0 added support for batch_first=True into Transformer, which is used here
+
 @register(MODEL)
 class TransformerSeqClassifier(nn.Module):
 
@@ -49,6 +51,11 @@ class TransformerSeqClassifier(nn.Module):
         sent_repr = self.compressor(tok_repr, src_mask)
         output = self.classifier(sent_repr, score=score)
         return output
+
+    @classmethod
+    def Trainer(cls, *args, **kwargs):
+        from .train import Trainer
+        return Trainer(*args, **kwargs)
 
 class PositionalEncoding(nn.Module):
 
