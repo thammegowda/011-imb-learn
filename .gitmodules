@@ -1,3 +1,6 @@
 [submodule "data/txtcls/coarse-discourse"]
 	path = data/txtcls/coarse-discourse
 	url = git@github.com:google-research-datasets/coarse-discourse.git
+[submodule "relatedwork/dice_loss_for_NLP"]
+	path = relatedwork/dice_loss_for_NLP
+	url = git@github.com:ShannonAI/dice_loss_for_NLP.git
