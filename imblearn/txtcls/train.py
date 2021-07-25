@@ -16,6 +16,7 @@ from nlcodec import learn_vocab, load_scheme, Reseved
 from torch.utils.data import DataLoader
 from torch.utils.data import Dataset
 from tqdm import tqdm
+from ray import tune
 
 from imblearn import log, yaml, registry, LOSS
 from imblearn.common.exp import BaseTrainer, BaseExperiment
@@ -216,6 +217,12 @@ class Trainer(BaseTrainer, NLPExperiment):
 
         torch.save(chkpt_state, self.last_checkpt)
         self._state.update(dict(step=self.step, epoch=self.epoch))
+        if tune.is_session_enabled(): # tuning
+            with tune.checkpoint_dir(self.step) as checkpt_dir:
+                last_checkpt_path = Path(checkpt_dir) / 'checkpoint'
+        else:
+            last_checkpt_path = self.last_checkpt
+        torch.save(chkpt_state, last_checkpt_path)
 
         if is_best:
             log.info('saving this checkpoint as best')
@@ -383,6 +390,7 @@ class Trainer(BaseTrainer, NLPExperiment):
                 self.epoch += 1
 
     def pipeline(self):
+        assert not self.tuning
         train_args: Dict = copy(self.conf['train'])
         # ignore args
         train_args.pop('src_path')
@@ -402,3 +410,4 @@ class Trainer(BaseTrainer, NLPExperiment):
                     continue
                 eval_main(exp_dir=self.work_dir, inp=src_path, out=out_file, labels=lbl_path,
                           result=score_file)
+

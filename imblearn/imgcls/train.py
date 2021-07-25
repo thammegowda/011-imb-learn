@@ -235,7 +235,7 @@ class Trainer(BaseTrainer):
 
     def train(self, max_step=10 ** 6, max_epoch=10 ** 3, batch_size=1,
               num_threads=0, checkpoint=1000, keep_in_mem=False,
-              train_parent_after=float('inf'), min_step=0):
+              train_parent_after=float('inf'), min_step=0, **kwargs):
         """
         :param max_step: maximum steps to train
         :param max_epoch: maximum epochs to train
@@ -247,6 +247,8 @@ class Trainer(BaseTrainer):
         :param min_step: minimum steps to train
         :return:
         """
+        if kwargs:
+            log.warning(f"{type(self)}.train() :: kwargs ignored: {kwargs}")
 
         train_loader = DataLoader(self.train_data, batch_size=batch_size, shuffle=True,
                                   num_workers=num_threads, pin_memory=True)

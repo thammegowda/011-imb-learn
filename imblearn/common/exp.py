@@ -7,10 +7,11 @@ from typing import Optional
 import torch
 from torch.utils.tensorboard import SummaryWriter
 from copy import copy
-
+from abc import abstractmethod, ABC
 
 from imblearn import device, yaml, log, registry, MODEL, OPTIMIZER, SCHEDULE, LOSS
 from .schedule import LRSchedule
+from ray import tune
 
 
 class BaseExperiment:
@@ -18,8 +19,9 @@ class BaseExperiment:
     def __init__(self, work_dir: Path, device=device, log_file=None, model=None):
         self.work_dir = work_dir
         self._conf_file = work_dir / 'conf.yml'
-        assert self._conf_file.exists()
-        self.conf = yaml.load(self._conf_file)
+        self._conf_tune_file = work_dir / 'conf.tune.yml'
+        assert self._conf_file.exists() or self._conf_tune_file.exists()
+
         self.device = device
         self.models_dir = work_dir / 'models'
         self.models_dir.mkdir(parents=True, exist_ok=True)
@@ -28,7 +30,13 @@ class BaseExperiment:
             logs_dir.mkdir(parents=True, exist_ok=True)
             log_file = logs_dir / 'log.log'
         log.update_file_handler(log_file)
-        self.model = (model or self._get_model()).to(device)
+        self._model = model.to(device) if model else None
+        if self._conf_file.exists():
+            self.tuning = False
+            self.conf = yaml.load(self._conf_file)
+        else:
+            self.tuning = True
+            self.conf = yaml.load(self._conf_tune_file)
         self.class_stats = self.work_dir / 'classes.csv'
         if self.class_stats.exists():
             self.classes = []
@@ -36,8 +44,13 @@ class BaseExperiment:
                 idx, name = line.strip().split(",")[:2]
                 assert line_num == int(idx)
                 self.classes.append(name)
-
         self._trained_flag = self.work_dir / '_TRAINED'  # fully trained
+
+    @property
+    def model(self):
+        if not self._model:
+            self._model = self._get_model().to(device)
+        return self._model
 
     @property
     def best_checkpt(self) -> Optional[Path]:
@@ -49,7 +62,6 @@ class BaseExperiment:
 
     def _get_component(self, kind, name=None, override=None, **args):
         """
-
         :param kind: component kind py::MODEL, py::OPTIMIZER etc
         :param name: name of component (optional; will be picked from conf)
         :param override: override these args over the args from conf (optional)
@@ -79,16 +91,16 @@ class BaseExperiment:
         return self._get_component(LOSS, override=dict(exp=self))
 
 
-class BaseTrainer(BaseExperiment):
-    def __init__(self, work_dir, *args, **kwargs):
+class BaseTrainer(BaseExperiment, ABC):
+
+    def __init__(self, work_dir, *args, restore_checkpt: Optional[Path]=None, **kwargs):
         logs_dir = work_dir / 'logs'
         logs_dir.mkdir(parents=True, exist_ok=True)
         log_file = logs_dir / 'trainer.log'
         super().__init__(work_dir=work_dir, device=device, log_file=log_file)
-
-        self.optimizer = self._get_optimizer()
-        self.scheduler = self._get_scheduler() if SCHEDULE in self.conf else None
         self._loss_func = None  # requires lazy initialization
+        self._optimizer = None
+        self._scheduler = None
 
         self._state = dict(step=0, epoch=0, best_step=0,
                            train_metric=dict(loss=[]),
@@ -101,10 +113,15 @@ class BaseTrainer(BaseExperiment):
         self.step = self._state['step']
         self.epoch = self._state['epoch']
         if self.step > 0:
-            checkpt_file = self.last_checkpt if self.last_checkpt.exists() else self.best_checkpt
-            assert checkpt_file.exists(), \
-                f'{self._state_file} exists with step > 0 but no checkpoint found at' \
-                f' {self.last_checkpt} and {self.best_checkpt}'
+            if restore_checkpt:
+                assert restore_checkpt.exists()
+                checkpt_file = restore_checkpt
+            else:
+                checkpt_file = self.last_checkpt if self.last_checkpt.exists()\
+                    else self.best_checkpt
+                assert checkpt_file.exists(), \
+                    f'{self._state_file} exists with step > 0 but no checkpoint found at' \
+                    f' {self.last_checkpt} and {self.best_checkpt}'
 
             chkpt = torch.load(checkpt_file, map_location=device)
             self.step, self.epoch = chkpt['step'], chkpt['epoch']
@@ -124,3 +141,25 @@ class BaseTrainer(BaseExperiment):
             self._loss_func = self._get_loss_func()
             log.info("Loss function initialized...")
         return self._loss_func
+
+    @property
+    def optimizer(self):
+        if not self._optimizer:
+            self._optimizer = self._get_optimizer()
+            log.info("Optimizer initialized...")
+        return self._optimizer
+
+    @property
+    def scheduler(self):
+        if not self._scheduler and SCHEDULE in self.conf:
+            self._scheduler = self._get_scheduler()
+            log.info("Scheduler initialized...")
+        return self._scheduler
+
+    def train_(self):
+        train_args = self.conf['train']
+        return self.train(**train_args)
+
+    @abstractmethod
+    def train(self, *args, **kwargs):
+        raise NotImplementedError()

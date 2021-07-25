@@ -5,6 +5,8 @@
 
 Improving classification performance on imbalanced class distributions.
 
+NOTE: Balanced learning is just a special case of imbalanced learning. So this is applicable on balanced datasets by default.
+
 == Tasks Overview
 . Image Classification
 . Masked Language Modeling

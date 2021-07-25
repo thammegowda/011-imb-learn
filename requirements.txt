@@ -5,3 +5,4 @@ transformers==4.5.1
 datasets==1.6.2
 tensorboard==2.5.0
 nlcodec==0.4.0
+ray[tune,default]==1.4.1

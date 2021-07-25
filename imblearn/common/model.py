@@ -4,11 +4,14 @@
 # Created: 7/19/21
 
 from torch import nn
-from abc import abstractmethod
+from abc import abstractmethod, ABC
 
-class BaseModel(nn.Module):
+from imblearn.common.exp import BaseTrainer
+
+
+class BaseModel(nn.Module, ABC):
 
     @classmethod
     @abstractmethod
-    def Trainer(cls):
+    def Trainer(cls) -> BaseTrainer:
         raise NotImplemented()
