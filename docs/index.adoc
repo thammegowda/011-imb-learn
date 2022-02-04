@@ -1,9 +1,11 @@
 = Imbalanced Learning
+:author: Thamme Gowda
+:email: tgowdan@gmail.com
 :doctype: book
 :encoding: utf-8
 :lang: en
-:toc:
 :toclevels: 3
+:leveloffset: +1
 :sectnums:
 :sectnumlevels: 4
 :data-uri:
@@ -13,12 +15,16 @@
 :icons: font
 :hide-uri-scheme:
 :source-highlighter: rouge
-
-'''
+:icons: font
+:icon-set: pf
+//:revnumber: 1.0
+//:revdate: Nov 1st, 2021
+:data-uri:
+:stem:
 
 Improving classification performance on imbalanced class distributions.
 
-== Tasks Overview
+= Tasks Overview
 . Image Classification
 . Masked Language Modeling
 . Machine Translation

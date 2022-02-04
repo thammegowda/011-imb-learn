@@ -5,6 +5,7 @@
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="generator" content="Asciidoctor 2.0.16">
+<meta name="author" content="Thamme Gowda">
 <title>Imbalanced Learning</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Open+Sans:300,300italic,400,400italic,600,600italic%7CNoto+Serif:400,400italic,700,700italic%7CDroid+Sans+Mono:400,700">
 <style>
@@ -664,6 +665,10 @@ pre.rouge {
 <body class="book toc2 toc-left">
 <div id="header">
 <h1>Imbalanced Learning</h1>
+<div class="details">
+<span id="author" class="author">Thamme Gowda</span><br>
+<span id="email" class="email"><a href="mailto:tgowdan@gmail.com">tgowdan@gmail.com</a></span><br>
+</div>
 <div id="toc" class="toc2">
 <div id="toctitle">Table of Contents</div>
 <ul class="sectlevel1">
@@ -681,38 +686,38 @@ pre.rouge {
 </ul>
 </li>
 <li><a href="#_neural_machine_translation">4. (Neural) Machine Translation</a>
-<ul class="sectlevel2">
+<ul class="sectlevel3">
 <li><a href="#_datasets_3">4.1. Datasets</a></li>
 <li><a href="#_models">4.2. Models</a></li>
 </ul>
 </li>
-<li><a href="#_configuration_file_conf_yml">Configuration file: <code>conf.yml</code></a>
-<ul class="sectlevel1">
-<li><a href="#_models_2">5. Models</a>
+<li><a href="#_configuration_file_conf_yml">5. Configuration file: <code>conf.yml</code></a>
 <ul class="sectlevel2">
-<li><a href="#_image_classifier">5.1. Image Classifier</a></li>
-<li><a href="#_masked_language_model">5.2. Masked Language Model</a></li>
+<li><a href="#_models_2">5.1. Models</a>
+<ul class="sectlevel3">
+<li><a href="#_image_classifier">5.1.1. Image Classifier</a></li>
+<li><a href="#_masked_language_model">5.1.2. Masked Language Model</a></li>
 </ul>
 </li>
-<li><a href="#_optimizers">6. Optimizers</a></li>
-<li><a href="#_schedule">7. Schedule</a>
-<ul class="sectlevel2">
-<li><a href="#_inverse_sqrt_inverse_square_root">7.1. <code>inverse_sqrt</code>: Inverse Square Root</a></li>
-<li><a href="#_noam_noam">7.2. <code>noam</code>: Noam</a></li>
+<li><a href="#_optimizers">5.2. Optimizers</a></li>
+<li><a href="#_schedule">5.3. Schedule</a>
+<ul class="sectlevel3">
+<li><a href="#_inverse_sqrt_inverse_square_root">5.3.1. <code>inverse_sqrt</code>: Inverse Square Root</a></li>
+<li><a href="#_noam_noam">5.3.2. <code>noam</code>: Noam</a></li>
 </ul>
 </li>
-<li><a href="#_loss">8. Loss</a>
-<ul class="sectlevel2">
-<li><a href="#_cross_entropy">8.1. Cross Entropy</a></li>
-<li><a href="#_weighted_cross_entropy">8.2. Weighted Cross Entropy</a></li>
-<li><a href="#_focal_loss">8.3. Focal Loss</a></li>
-<li><a href="#_label_smoothing">8.4. Label Smoothing</a></li>
-<li><a href="#_balanced_label_smoothing">8.5. Balanced label smoothing</a></li>
+<li><a href="#_loss">5.4. Loss</a>
+<ul class="sectlevel3">
+<li><a href="#_cross_entropy">5.4.1. Cross Entropy</a></li>
+<li><a href="#_weighted_cross_entropy">5.4.2. Weighted Cross Entropy</a></li>
+<li><a href="#_focal_loss">5.4.3. Focal Loss</a></li>
+<li><a href="#_label_smoothing">5.4.4. Label Smoothing</a></li>
+<li><a href="#_balanced_label_smoothing">5.4.5. Balanced label smoothing</a></li>
 </ul>
 </li>
-<li><a href="#_macro_cross_entropy">9. Macro Cross Entropy</a></li>
-<li><a href="#_trainer">10. Trainer</a></li>
-<li><a href="#_validation">11. Validation</a></li>
+<li><a href="#_macro_cross_entropy">5.5. Macro Cross Entropy</a></li>
+<li><a href="#_trainer">5.6. Trainer</a></li>
+<li><a href="#_validation">5.7. Validation</a></li>
 </ul>
 </li>
 </ul>
@@ -721,7 +726,6 @@ pre.rouge {
 <div id="content">
 <div id="preamble">
 <div class="sectionbody">
-<hr>
 <div class="paragraph">
 <p>Improving classification performance on imbalanced class distributions.</p>
 </div>
@@ -807,8 +811,8 @@ pre.rouge {
 <div class="sect1">
 <h2 id="_neural_machine_translation">4. (Neural) Machine Translation</h2>
 <div class="sectionbody">
-<div class="sect2">
-<h3 id="_datasets_3">4.1. Datasets</h3>
+<div class="sect3">
+<h4 id="_datasets_3">4.1. Datasets</h4>
 <div class="literalblock">
 <div class="content">
 <pre>TODO:</pre>
@@ -822,78 +826,75 @@ pre.rouge {
 </ul>
 </div>
 </div>
-<div class="sect2">
-<h3 id="_models">4.2. Models</h3>
+<div class="sect3">
+<h4 id="_models">4.2. Models</h4>
 
 </div>
 </div>
 </div>
-<h1 id="_configuration_file_conf_yml" class="sect0">Configuration file: <code>conf.yml</code></h1>
-<div class="openblock partintro">
-<div class="content">
+<div class="sect1">
+<h2 id="_configuration_file_conf_yml">5. Configuration file: <code>conf.yml</code></h2>
+<div class="sectionbody">
 <div class="paragraph">
 <p>Here is the basic schema of <code>conf.yml</code></p>
 </div>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight"><code data-lang="YAML">model:
-    name: &lt;name&gt;
-    args:
-        key1: &lt;value&gt;
-        key2: &lt;value&gt;
-optimizer:
-    name: &lt;name&gt;
-    args:
-        key1: &lt;value&gt;
-schedule:
-    name: &lt;name&gt;
-    args:
-        key1: &lt;value&gt;
-loss:
-    name: &lt;name&gt;
-    args:
-        key1: &lt;value&gt;
-train:
-    data: &lt;path/data/train&gt;
-    batch_size: 2    # number of images
-    max_step: 300    # maximum number of steps
-    max_epoch: 100   # maximum number of epochs
-    checkpoint: 100  # validate and checkpoint every these many steps
-    keep_in_mem: true  # keep datasets in memory
+<pre class="rouge highlight"><code data-lang="yaml"><span class="na">model</span><span class="pi">:</span>
+    <span class="na">name</span><span class="pi">:</span> <span class="s">&lt;name&gt;</span>
+    <span class="na">args</span><span class="pi">:</span>
+        <span class="na">key1</span><span class="pi">:</span> <span class="s">&lt;value&gt;</span>
+        <span class="na">key2</span><span class="pi">:</span> <span class="s">&lt;value&gt;</span>
+<span class="na">optimizer</span><span class="pi">:</span>
+    <span class="na">name</span><span class="pi">:</span> <span class="s">&lt;name&gt;</span>
+    <span class="na">args</span><span class="pi">:</span>
+        <span class="na">key1</span><span class="pi">:</span> <span class="s">&lt;value&gt;</span>
+<span class="na">schedule</span><span class="pi">:</span>
+    <span class="na">name</span><span class="pi">:</span> <span class="s">&lt;name&gt;</span>
+    <span class="na">args</span><span class="pi">:</span>
+        <span class="na">key1</span><span class="pi">:</span> <span class="s">&lt;value&gt;</span>
+<span class="na">loss</span><span class="pi">:</span>
+    <span class="na">name</span><span class="pi">:</span> <span class="s">&lt;name&gt;</span>
+    <span class="na">args</span><span class="pi">:</span>
+        <span class="na">key1</span><span class="pi">:</span> <span class="s">&lt;value&gt;</span>
+<span class="na">train</span><span class="pi">:</span>
+    <span class="na">data</span><span class="pi">:</span> <span class="s">&lt;path/data/train&gt;</span>
+    <span class="na">batch_size</span><span class="pi">:</span> <span class="m">2</span>    <span class="c1"># number of images</span>
+    <span class="na">max_step</span><span class="pi">:</span> <span class="m">300</span>    <span class="c1"># maximum number of steps</span>
+    <span class="na">max_epoch</span><span class="pi">:</span> <span class="m">100</span>   <span class="c1"># maximum number of epochs</span>
+    <span class="na">checkpoint</span><span class="pi">:</span> <span class="m">100</span>  <span class="c1"># validate and checkpoint every these many steps</span>
+    <span class="na">keep_in_mem</span><span class="pi">:</span> <span class="no">true</span>  <span class="c1"># keep datasets in memory</span>
 
-validation:
-    data: &lt;path/data/val&gt;
-    batch_size: 10
-    patience: 10
-    by: macro_f1
+<span class="na">validation</span><span class="pi">:</span>
+    <span class="na">data</span><span class="pi">:</span> <span class="s">&lt;path/data/val&gt;</span>
+    <span class="na">batch_size</span><span class="pi">:</span> <span class="m">10</span>
+    <span class="na">patience</span><span class="pi">:</span> <span class="m">10</span>
+    <span class="na">by</span><span class="pi">:</span> <span class="s">macro_f1</span>
 
-tests:
-    #test: &lt;path/data/test1&gt;       # dont use tests until the end
-    val: &lt;path/data/val&gt;</code></pre>
+<span class="na">tests</span><span class="pi">:</span>
+    <span class="c1">#test: &lt;path/data/test1&gt;       # dont use tests until the end</span>
+    <span class="na">val</span><span class="pi">:</span> <span class="s">&lt;path/data/val&gt;</span></code></pre>
 </div>
 </div>
-</div>
-</div>
-<div class="sect1">
-<h2 id="_models_2">5. Models</h2>
-<div class="sectionbody">
 <div class="sect2">
-<h3 id="_image_classifier">5.1. Image Classifier</h3>
+<h3 id="_models_2">5.1. Models</h3>
+<div class="sect3">
+<h4 id="_image_classifier">5.1.1. Image Classifier</h4>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight"><code data-lang="YAML">model:
-    name: image_classifier
-    args:
-        n_classes: 19
-        intermediate: 40
-        dropout: 0.2
-        parent: resnext50_32x4d    # torchvision.models.&lt;this&gt;
-        pretrained: true           # initialize pretrained parent model</code></pre>
+<pre class="rouge highlight"><code data-lang="yaml"><span class="na">model</span><span class="pi">:</span>
+    <span class="na">name</span><span class="pi">:</span> <span class="s">image_classifier</span>
+    <span class="na">args</span><span class="pi">:</span>
+        <span class="na">n_classes</span><span class="pi">:</span> <span class="m">19</span>
+        <span class="na">intermediate</span><span class="pi">:</span> <span class="m">40</span>
+        <span class="na">dropout</span><span class="pi">:</span> <span class="m">0.2</span>
+        <span class="na">parent</span><span class="pi">:</span> <span class="s">resnext50_32x4d</span>    <span class="c1"># torchvision.models.&lt;this&gt;</span>
+        <span class="na">pretrained</span><span class="pi">:</span> <span class="no">true</span>           <span class="c1"># initialize pretrained parent model</span></code></pre>
 </div>
 </div>
 </div>
-<div class="sect2">
-<h3 id="_masked_language_model">5.2. Masked Language Model</h3>
+<div class="sect3">
+<h4 id="_masked_language_model">5.1.2. Masked Language Model</h4>
 <div class="admonitionblock note">
 <table>
 <tr>
@@ -908,10 +909,8 @@ Work in progress
 </div>
 </div>
 </div>
-</div>
-<div class="sect1">
-<h2 id="_optimizers">6. Optimizers</h2>
-<div class="sectionbody">
+<div class="sect2">
+<h3 id="_optimizers">5.2. Optimizers</h3>
 <div class="paragraph">
 <p>The following optimizers are supported</p>
 </div>
@@ -948,18 +947,16 @@ Work in progress
 </div>
 </div>
 </div>
-</div>
-<div class="sect1">
-<h2 id="_schedule">7. Schedule</h2>
-<div class="sectionbody">
+<div class="sect2">
+<h3 id="_schedule">5.3. Schedule</h3>
 <div class="paragraph">
 <p>Schedule is an optional component. Comment or delete the <code>schedule:</code> block in conf.yml to disable it.</p>
 </div>
 <div class="paragraph">
 <p>The following learning schedules are supported:</p>
 </div>
-<div class="sect2">
-<h3 id="_inverse_sqrt_inverse_square_root">7.1. <code>inverse_sqrt</code>: Inverse Square Root</h3>
+<div class="sect3">
+<h4 id="_inverse_sqrt_inverse_square_root">5.3.1. <code>inverse_sqrt</code>: Inverse Square Root</h4>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight"><code data-lang="yaml"><span class="na">schedule</span><span class="pi">:</span>
@@ -970,8 +967,8 @@ Work in progress
 </div>
 </div>
 </div>
-<div class="sect2">
-<h3 id="_noam_noam">7.2. <code>noam</code>: Noam</h3>
+<div class="sect3">
+<h4 id="_noam_noam">5.3.2. <code>noam</code>: Noam</h4>
 <div class="quoteblock">
 <blockquote>
 <div class="paragraph">
@@ -991,12 +988,10 @@ Work in progress
 </div>
 </div>
 </div>
-</div>
-<div class="sect1">
-<h2 id="_loss">8. Loss</h2>
-<div class="sectionbody">
 <div class="sect2">
-<h3 id="_cross_entropy">8.1. Cross Entropy</h3>
+<h3 id="_loss">5.4. Loss</h3>
+<div class="sect3">
+<h4 id="_cross_entropy">5.4.1. Cross Entropy</h4>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight"><code data-lang="yaml"><span class="na">loss</span><span class="pi">:</span>
@@ -1006,8 +1001,8 @@ Work in progress
 </div>
 </div>
 </div>
-<div class="sect2">
-<h3 id="_weighted_cross_entropy">8.2. Weighted Cross Entropy</h3>
+<div class="sect3">
+<h4 id="_weighted_cross_entropy">5.4.2. Weighted Cross Entropy</h4>
 <div class="paragraph">
 <div class="title">Manual weights for classes</div>
 <p><code>loss.args.weight</code> can be set to a list. The list should have one weight per each class and match the order in &lt;experiment-dir/classes.csv&gt;.</p>
@@ -1089,8 +1084,8 @@ Let \$\pi_c = \frac{f_c}{\sum_i f_i} \$ be probability in training corpus (i.e. 
 If \$\beta=0 \implies \$ all classes attain same frequency of 1 as effective frequency(thus results in unweighted cross entropy); and if \$\beta \rightarrow 1\$ effective frequencies approaches raw frequencies (thus, no smoothing is in effect).</p>
 </div>
 </div>
-<div class="sect2">
-<h3 id="_focal_loss">8.3. Focal Loss</h3>
+<div class="sect3">
+<h4 id="_focal_loss">5.4.3. Focal Loss</h4>
 <div class="quoteblock">
 <blockquote>
 <div class="paragraph">
@@ -1110,8 +1105,8 @@ If \$\beta=0 \implies \$ all classes attain same frequency of 1 as effective fre
 </div>
 </div>
 </div>
-<div class="sect2">
-<h3 id="_label_smoothing">8.4. Label Smoothing</h3>
+<div class="sect3">
+<h4 id="_label_smoothing">5.4.4. Label Smoothing</h4>
 <div class="paragraph">
 <p>Extends <code>cross_entropy</code></p>
 </div>
@@ -1142,8 +1137,8 @@ If \$\beta=0 \implies \$ all classes attain same frequency of 1 as effective fre
 </table>
 </div>
 </div>
-<div class="sect2">
-<h3 id="_balanced_label_smoothing">8.5. Balanced label smoothing</h3>
+<div class="sect3">
+<h4 id="_balanced_label_smoothing">5.4.5. Balanced label smoothing</h4>
 <div class="paragraph">
 <p>Extends <code>cross_entropy</code></p>
 </div>
@@ -1171,10 +1166,8 @@ this is experimental
 </div>
 </div>
 </div>
-</div>
-<div class="sect1">
-<h2 id="_macro_cross_entropy">9. Macro Cross Entropy</h2>
-<div class="sectionbody">
+<div class="sect2">
+<h3 id="_macro_cross_entropy">5.5. Macro Cross Entropy</h3>
 <div class="paragraph">
 <p>Extends <code>smooth_cross_entropy</code></p>
 </div>
@@ -1192,10 +1185,8 @@ this is experimental
 </div>
 </div>
 </div>
-</div>
-<div class="sect1">
-<h2 id="_trainer">10. Trainer</h2>
-<div class="sectionbody">
+<div class="sect2">
+<h3 id="_trainer">5.6. Trainer</h3>
 <div class="paragraph">
 <p>This example is for image classifier model, and it is subject to change.</p>
 </div>
@@ -1228,10 +1219,8 @@ this is experimental
 </table>
 </div>
 </div>
-</div>
-<div class="sect1">
-<h2 id="_validation">11. Validation</h2>
-<div class="sectionbody">
+<div class="sect2">
+<h3 id="_validation">5.7. Validation</h3>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight"><code data-lang="yaml"><span class="na">validation</span><span class="pi">:</span>
@@ -1252,10 +1241,35 @@ this is experimental
 </div>
 </div>
 </div>
+</div>
 <div id="footer">
 <div id="footer-text">
-Last updated 2022-02-03 16:36:16 -0800
+Last updated 2022-02-03 17:22:08 -0800
 </div>
 </div>
+<script type="text/x-mathjax-config">
+MathJax.Hub.Config({
+  messageStyle: "none",
+  tex2jax: {
+    inlineMath: [["\\(", "\\)"]],
+    displayMath: [["\\[", "\\]"]],
+    ignoreClass: "nostem|nolatexmath"
+  },
+  asciimath2jax: {
+    delimiters: [["\\$", "\\$"]],
+    ignoreClass: "nostem|noasciimath"
+  },
+  TeX: { equationNumbers: { autoNumber: "none" } }
+})
+MathJax.Hub.Register.StartupHook("AsciiMath Jax Ready", function () {
+  MathJax.InputJax.AsciiMath.postfilterHooks.Add(function (data, node) {
+    if ((node = data.script.parentNode) && (node = node.parentNode) && node.classList.contains("stemblock")) {
+      data.math.root.display = "block"
+    }
+    return data
+  })
+})
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.9/MathJax.js?config=TeX-MML-AM_HTMLorMML"></script>
 </body>
 </html>

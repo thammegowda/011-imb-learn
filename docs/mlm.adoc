@@ -1,10 +1,10 @@
-== Masked Language Modeling (MLM)
+= Masked Language Modeling (MLM)
 
 MLM is based on 🤗 Transformers.
 
-=== Datasets
+== Datasets
 
 Automatically downloaded.
 
-=== Model
+== Model
 See `link:imblearn/mlm/[]` directory

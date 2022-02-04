@@ -1,7 +1,8 @@
 = Configuration file: `conf.yml`
 
 Here is the basic schema of `conf.yml`
-[source,YAML]
+
+[source, yaml]
 ----
 model:
     name: <name>
@@ -43,7 +44,7 @@ tests:
 
 === Image Classifier
 
-[source,YAML]
+[source, yaml]
 ----
 model:
     name: image_classifier
@@ -71,6 +72,7 @@ The following optimizers are supported
 * `sparse_adam`=torch.optim.SparseAdam
 
 .Example for `adam`
+
 [source,yaml]
 ----
 optimizer:
