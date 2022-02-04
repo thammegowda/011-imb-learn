@@ -22,6 +22,9 @@
 :data-uri:
 :stem:
 
+
+* icon:github[2x] https://github.com/thammegowda/011-imb-learn
+
 Improving classification performance on imbalanced class distributions.
 
 = Tasks Overview
