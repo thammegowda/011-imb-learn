@@ -2,8 +2,8 @@
 == Datasets
 
 Ruh either of the below commands to download and prepare datasets:
-- Run `link:[data/imgcls/get-data.sh]` -- This includes data augmentations provided by dataset creators.
-- Run `link:[data/imgcls/get-data-uniq.sh]`-- This excludes augmentations provided by dataset creators. Maybe useful if you have dynamic augmentations (we do as part of pytorch data loader)
+- Run `link:data/imgcls/get-data.sh[]` -- This includes data augmentations provided by dataset creators.
+- Run `link:data/imgcls/get-data-uniq.sh[]` -- This excludes augmentations provided by dataset creators. Maybe useful if you have dynamic augmentations (we do as part of pytorch data loader)
 
 [source,bash]
 ----
